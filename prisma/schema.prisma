@@ -10,12 +10,15 @@ datasource db {
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
-  passwordHash String
+  // Nullable: OAuth-only accounts (Google/Microsoft) never get a local password.
+  passwordHash String?
   name         String
   phone        String   @default("")
   businessName String   @default("")
   region       String   @default("")
-  role         String   @default("user") // user | admin
+  role         String   @default("user") // user | admin — never set from client/OAuth input
+  image        String   @default("") // avatar URL, populated from OAuth profile picture if present
+  emailVerified Boolean @default(false)
   mfaEnabled   Boolean  @default(false)
   mfaSecret    String   @default("")
   mfaTempSecret String  @default("")
@@ -33,6 +36,26 @@ model User {
   notifications   Notification[]
   payments        Payment[]
   bankConnections BankConnection[]
+  oauthAccounts   OAuthAccount[]
+}
+
+// One row per linked external identity provider account. `provider` +
+// `providerAccountId` (the provider's stable subject/user id, NOT email) is
+// the unique key — this is what lets the same Google/Microsoft identity log
+// back in and be recognized, without ever trusting email equality alone for
+// account linking.
+model OAuthAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String // google | microsoft
+  providerAccountId String // OIDC `sub` claim from the provider
+  email             String   @default("") // provider-reported email at link time, for reference only
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Task {
