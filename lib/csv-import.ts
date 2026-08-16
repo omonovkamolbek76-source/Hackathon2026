@@ -14,6 +14,19 @@ function parseAmount(raw: string): number {
   return Math.round(Math.abs(n));
 }
 
+/**
+ * Neutralizes CSV/formula injection (CWE-1236): if a value starts with
+ * =, +, -, @, tab, or CR, spreadsheet apps (Excel/Sheets) may interpret it as
+ * a formula when this data is later re-exported. Prefixing with a single
+ * quote forces text interpretation while keeping the value human-readable.
+ */
+export function sanitizeSpreadsheetField(value: string): string {
+  if (/^[=+\-@\t\r]/.test(value)) {
+    return `'${value}`;
+  }
+  return value;
+}
+
 export function parseBankCsv(content: string): ParsedCsvRow[] {
   const lines = content
     .split(/\r?\n/)
@@ -34,7 +47,7 @@ export function parseBankCsv(content: string): ParsedCsvRow[] {
     const type: 'income' | 'expense' = signed < 0 || /chiqim|expense|debit/i.test(descRaw) ? 'expense' : 'income';
     const occurredAt = new Date(dateRaw);
     const when = Number.isNaN(occurredAt.getTime()) ? new Date() : occurredAt;
-    const title = descRaw.trim().slice(0, 200) || 'Bank operatsiyasi';
+    const title = sanitizeSpreadsheetField(descRaw.trim().slice(0, 200)) || 'Bank operatsiyasi';
     rows.push({
       title,
       amount,

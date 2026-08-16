@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_API = new Set(['/api/auth/login', '/api/auth/register', '/api/health']);
+const PUBLIC_API = new Set(['/api/auth/login', '/api/auth/register', '/api/health', '/api/payments/webhook']);
 
 export function middleware(request: NextRequest) {
   const response = NextResponse.next();
@@ -11,6 +11,23 @@ export function middleware(request: NextRequest) {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   response.headers.set('X-XSS-Protection', '0');
+  // Next.js dev/HMR and inline hydration scripts require 'unsafe-inline'/'unsafe-eval'
+  // for script-src; this is a known, documented Next.js constraint without a
+  // nonce-based setup. All other directives are locked to same-origin.
+  response.headers.set(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "font-src 'self' data:",
+      "connect-src 'self'",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; '),
+  );
   if (process.env.NODE_ENV === 'production') {
     response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   }

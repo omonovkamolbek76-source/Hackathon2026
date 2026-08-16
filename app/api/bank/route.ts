@@ -52,17 +52,26 @@ export async function POST(request: Request) {
   }
 }
 
+const csvImportSchema = z.object({
+  csv: z.string().min(1).max(2_000_000),
+});
+
 export async function PUT(request: Request) {
   try {
     const user = await requireUser();
     const rl = rateLimit(clientKey(request, `csv:${user.id}`), 10, 60_000);
     if (!rl.ok) return jsonError('Juda ko‘p so‘rov', 429);
 
-    const body = await request.json();
-    const csv = typeof body.csv === 'string' ? body.csv : '';
-    if (!csv || csv.length > 2_000_000) return jsonError('CSV bo‘sh yoki juda katta');
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return jsonError('Noto‘g‘ri JSON');
+    }
+    const parsed = csvImportSchema.safeParse(body);
+    if (!parsed.success) return jsonError('CSV bo‘sh yoki juda katta', 400, { details: parsed.error.flatten() });
 
-    const rows = parseBankCsv(csv);
+    const rows = parseBankCsv(parsed.data.csv);
     if (rows.length === 0) return jsonError('CSV dan tranzaksiya o‘qilmadi');
 
     let created = 0;
