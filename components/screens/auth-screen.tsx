@@ -11,6 +11,8 @@ export function AuthScreen() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaRequired, setMfaRequired] = useState(false);
   const [name, setName] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [region, setRegion] = useState('');
@@ -23,12 +25,17 @@ export function AuthScreen() {
     setLoading(true);
     try {
       if (mode === 'login') {
-        await login(email, password);
+        await login(email, password, mfaCode || undefined);
       } else {
         await register({ email, password, name, businessName, region });
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Xatolik yuz berdi');
+      if (err instanceof ApiError && err.data?.mfaRequired) {
+        setMfaRequired(true);
+        setError('Authenticator ilovasidagi 6 xonali kodni kiriting');
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Xatolik yuz berdi');
+      }
     } finally {
       setLoading(false);
     }
@@ -47,18 +54,10 @@ export function AuthScreen() {
 
         <form onSubmit={submit} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <div className="mb-4 flex rounded-xl bg-accent p-1">
-            <button
-              type="button"
-              onClick={() => setMode('login')}
-              className={cn('flex-1 rounded-lg py-2 text-sm font-semibold', mode === 'login' && 'bg-card shadow-sm')}
-            >
+            <button type="button" onClick={() => setMode('login')} className={cn('flex-1 rounded-lg py-2 text-sm font-semibold', mode === 'login' && 'bg-card shadow-sm')}>
               Kirish
             </button>
-            <button
-              type="button"
-              onClick={() => setMode('register')}
-              className={cn('flex-1 rounded-lg py-2 text-sm font-semibold', mode === 'register' && 'bg-card shadow-sm')}
-            >
+            <button type="button" onClick={() => setMode('register')} className={cn('flex-1 rounded-lg py-2 text-sm font-semibold', mode === 'register' && 'bg-card shadow-sm')}>
               Ro‘yxat
             </button>
           </div>
@@ -67,42 +66,22 @@ export function AuthScreen() {
             <>
               <label className="mb-3 block text-xs font-medium text-muted-foreground">
                 Ism
-                <input
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
-                />
+                <input required value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
               </label>
               <label className="mb-3 block text-xs font-medium text-muted-foreground">
                 Biznes nomi
-                <input
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
-                />
+                <input value={businessName} onChange={(e) => setBusinessName(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
               </label>
               <label className="mb-3 block text-xs font-medium text-muted-foreground">
                 Hudud
-                <input
-                  value={region}
-                  onChange={(e) => setRegion(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
-                />
+                <input value={region} onChange={(e) => setRegion(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
               </label>
             </>
           )}
 
           <label className="mb-3 block text-xs font-medium text-muted-foreground">
             Email
-            <input
-              required
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
-            />
+            <input required type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
           </label>
           <label className="mb-3 block text-xs font-medium text-muted-foreground">
             Parol {mode === 'register' && '(kamida 8 belgi)'}
@@ -117,20 +96,30 @@ export function AuthScreen() {
             />
           </label>
 
+          {mode === 'login' && (mfaRequired || mfaCode) && (
+            <label className="mb-3 block text-xs font-medium text-muted-foreground">
+              MFA kod
+              <input
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
+                placeholder="123456"
+              />
+            </label>
+          )}
+
           {error && <div className="mb-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-60"
-          >
+          <button type="submit" disabled={loading} className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-60">
             {loading ? 'Kuting...' : mode === 'login' ? 'Kirish' : 'Hisob yaratish'}
           </button>
         </form>
 
         <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
           <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-          Parol bcrypt bilan saqlanadi · sessiya httpOnly cookie
+          Parol bcrypt · MFA (TOTP) · httpOnly cookie
         </div>
       </div>
     </div>

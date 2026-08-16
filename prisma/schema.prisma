@@ -16,15 +16,22 @@ model User {
   businessName String   @default("")
   region       String   @default("")
   role         String   @default("user") // user | admin
+  mfaEnabled   Boolean  @default(false)
+  mfaSecret    String   @default("")
+  mfaTempSecret String  @default("")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tasks          Task[]
-  transactions   Transaction[]
-  chatMessages   ChatMessage[]
-  businessPlans  BusinessPlan[]
-  creditApps     CreditApplication[]
-  allocations    FundAllocation[]
+  tasks           Task[]
+  transactions    Transaction[]
+  chatMessages    ChatMessage[]
+  businessPlans   BusinessPlan[]
+  creditApps      CreditApplication[]
+  allocations     FundAllocation[]
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+  payments        Payment[]
+  bankConnections BankConnection[]
 }
 
 model Task {
@@ -44,78 +51,83 @@ model Task {
 }
 
 model Transaction {
-  id        String   @id @default(cuid())
-  userId    String
-  title     String
-  amount    Int
-  type      String // income | expense
-  category  String   @default("other")
+  id         String   @id @default(cuid())
+  userId     String
+  title      String
+  amount     Int
+  type       String // income | expense
+  category   String   @default("other")
+  source     String   @default("manual") // manual | csv | bank
+  externalId String   @default("")
   occurredAt DateTime @default(now())
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, occurredAt])
+  @@index([userId, externalId])
 }
 
 model ChatMessage {
-  id        String   @id @default(cuid())
-  userId    String
-  role      String // user | assistant
-  content   String
-  stage     Int?
-  stageName String?
-  quickReplies String? // JSON array string
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  userId       String
+  role         String
+  content      String
+  stage        Int?
+  stageName    String?
+  quickReplies String?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
 }
 
 model BusinessPlan {
-  id               String   @id @default(cuid())
-  userId           String
-  businessName     String
-  targetAudience   String
-  budget           Int
-  description      String
-  concept          String
+  id                String   @id @default(cuid())
+  userId            String
+  businessName      String
+  targetAudience    String
+  budget            Int
+  description       String
+  concept           String
   marketOpportunity String
-  competitors      String
-  marketingPlan    String
-  operationalPlan  String
-  financialPlan    String
-  expenses         String
-  expectedRevenue  String
-  breakeven        String
-  nextSteps        String // JSON array string
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competitors       String
+  marketingPlan     String
+  operationalPlan   String
+  financialPlan     String
+  expenses          String
+  expectedRevenue   String
+  breakeven         String
+  nextSteps         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model CreditProduct {
-  id           String  @id @default(cuid())
-  name         String
-  bank         String
-  amountMin    Int
-  amountMax    Int
-  interestRate Float
-  termMonths   Int
-  gracePeriod  Int     @default(0)
-  collateral   String
-  purposeTags  String // comma-separated: equipment,inventory,expansion,working,startup
-  active       Boolean @default(true)
-  sourceNote   String  @default("Illustrative catalog — verify on official bank / oilakredit.uz")
-  createdAt    DateTime @default(now())
+  id             String   @id @default(cuid())
+  name           String
+  bank           String
+  amountMin      Int
+  amountMax      Int
+  interestRate   Float
+  termMonths     Int
+  gracePeriod    Int      @default(0)
+  collateral     String
+  purposeTags    String
+  active         Boolean  @default(true)
+  sourceNote     String   @default("Verify on official bank / oilakredit.uz")
+  sourceUrl      String   @default("https://oilakredit.uz")
+  lastVerifiedAt DateTime @default(now())
+  createdAt      DateTime @default(now())
 }
 
 model CreditApplication {
   id        String   @id @default(cuid())
   userId    String
-  answers   String // JSON
-  results   String // JSON matched products with scores
+  answers   String
+  results   String
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -134,4 +146,63 @@ model FundAllocation {
 
   @@index([userId])
   @@unique([userId, category])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  meta      String   @default("{}")
+  ip        String   @default("")
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([action])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  kind      String   @default("info") // info | tax | payment | security
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  userId      String
+  provider    String   @default("local") // local | stripe
+  amount      Int
+  currency    String   @default("UZS")
+  purpose     String   @default("subscription")
+  status      String   @default("pending") // pending | paid | failed | canceled
+  externalId  String   @default("")
+  checkoutUrl String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
+
+model BankConnection {
+  id           String   @id @default(cuid())
+  userId       String
+  provider     String   @default("csv") // csv | uzcard_stub | humo_stub
+  status       String   @default("active") // active | revoked
+  label        String   @default("Bank ko‘chirma")
+  // NEVER store PAN/CVV/OTP — only opaque connection metadata
+  tokenHint    String   @default("")
+  lastImportAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

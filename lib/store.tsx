@@ -12,7 +12,7 @@ type AuthUser = Pick<User, 'id' | 'email' | 'name' | 'phone' | 'businessName' | 
 interface AppStore {
   authLoading: boolean;
   user: AuthUser | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, mfaCode?: string) => Promise<void>;
   register: (input: {
     email: string;
     password: string;
@@ -192,10 +192,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     Promise.all([loadTasks(), loadChat(), loadAnalytics()]).catch(() => undefined);
   }, [user, loadTasks, loadChat, loadAnalytics]);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string, mfaCode?: string) => {
     const data = await api<{ user: AuthUser }>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, mfaCode }),
     });
     setUser(data.user);
   }, []);
