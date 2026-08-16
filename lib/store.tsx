@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { ScreenId, Task, AIMessage } from '@/types';
 import { demoTasks } from '@/data/mock';
+import { welcomeReply, JOURNEY_STAGES } from '@/lib/journey';
 
 interface AppStore {
   screen: ScreenId;
@@ -14,6 +15,10 @@ interface AppStore {
   chatMessages: AIMessage[];
   addChatMessage: (msg: AIMessage) => void;
   resetChat: () => void;
+  journeyStage: number;
+  setJourneyStage: (n: number) => void;
+  journeyProfile: Record<string, string>;
+  setJourneyProfile: (patch: Record<string, string>) => void;
   creditFlowStep: number;
   setCreditFlowStep: (step: number) => void;
   creditFlowAnswers: Record<string, string>;
@@ -26,14 +31,16 @@ interface AppStore {
 
 const AppContext = createContext<AppStore | null>(null);
 
+const welcome = welcomeReply();
 const initialChatMessages: AIMessage[] = [
   {
     id: 'm0',
     role: 'assistant',
-    content:
-      "Salom! Men — TadbirkorAI, sizning shaxsiy biznes maslahatchingizman. Biznes g'oyangizni rivojlantirish, kredit topish, reja tuzish va biznesingizni tahlil qilishda yordam beraman. Qanday savolingiz bor?",
-    quickReplies: ['Kredit topish', 'Biznes g‘oya', 'Bozor tahlili', 'Reklama rejasi', 'Biznes reja'],
+    content: welcome.message,
+    quickReplies: welcome.quickReplies,
     timestamp: Date.now(),
+    stage: welcome.stage,
+    stageName: JOURNEY_STAGES[welcome.stage]?.name,
   },
 ];
 
@@ -42,6 +49,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [history, setHistory] = useState<ScreenId[]>(['home']);
   const [tasks, setTasks] = useState<Task[]>(demoTasks);
   const [chatMessages, setChatMessages] = useState<AIMessage[]>(initialChatMessages);
+  const [journeyStage, setJourneyStage] = useState(0);
+  const [journeyProfile, setJourneyProfileState] = useState<Record<string, string>>({});
   const [creditFlowStep, setCreditFlowStep] = useState(0);
   const [creditFlowAnswers, setCreditFlowAnswers] = useState<Record<string, string>>({});
   const [selectedCreditIds, setSelectedCreditIds] = useState<string[]>([]);
@@ -87,7 +96,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resetChat = useCallback(() => {
-    setChatMessages(initialChatMessages);
+    const w = welcomeReply();
+    setChatMessages([
+      {
+        id: 'm0',
+        role: 'assistant',
+        content: w.message,
+        quickReplies: w.quickReplies,
+        timestamp: Date.now(),
+        stage: w.stage,
+        stageName: JOURNEY_STAGES[w.stage]?.name,
+      },
+    ]);
+    setJourneyStage(0);
+    setJourneyProfileState({});
+    setCreditFlowStep(0);
+    setCreditFlowAnswers({});
+  }, []);
+
+  const setJourneyProfile = useCallback((patch: Record<string, string>) => {
+    setJourneyProfileState((p) => ({ ...p, ...patch }));
   }, []);
 
   const setCreditFlowAnswer = useCallback((key: string, value: string) => {
@@ -112,6 +140,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         chatMessages,
         addChatMessage,
         resetChat,
+        journeyStage,
+        setJourneyStage,
+        journeyProfile,
+        setJourneyProfile,
         creditFlowStep,
         setCreditFlowStep,
         creditFlowAnswers,

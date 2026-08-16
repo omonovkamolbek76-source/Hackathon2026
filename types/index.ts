@@ -106,6 +106,8 @@ export interface AIMessage {
   content: string;
   quickReplies?: string[];
   timestamp: number;
+  stage?: number;
+  stageName?: string;
 }
 
 export interface KPI {
