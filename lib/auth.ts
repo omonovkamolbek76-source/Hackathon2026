@@ -119,3 +119,60 @@ export function sessionCookieOptions(token: string) {
     maxAge: SESSION_DAYS * 24 * 60 * 60,
   };
 }
+
+// --- OAuth login -> MFA step-up bridge -------------------------------------
+// An OAuth-verified identity must still satisfy this app's own MFA if the
+// resolved account has it enabled (OAuth is not allowed to bypass MFA). This
+// short-lived, single-purpose token bridges "identity confirmed by provider"
+// to "TOTP code confirmed by us" without ever issuing a full session cookie
+// in between.
+
+const OAUTH_MFA_COOKIE = 'tadbirkorai_oauth_mfa_pending';
+const OAUTH_MFA_TTL_SECONDS = 5 * 60;
+const OAUTH_MFA_AUDIENCE = 'oauth-mfa-pending';
+
+export const OAUTH_MFA_COOKIE_NAME = OAUTH_MFA_COOKIE;
+
+export async function createOAuthMfaPendingToken(userId: string): Promise<string> {
+  return new SignJWT({ sub: userId })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setAudience(OAUTH_MFA_AUDIENCE)
+    .setIssuedAt()
+    .setExpirationTime(`${OAUTH_MFA_TTL_SECONDS}s`)
+    .sign(getSecret());
+}
+
+export function oauthMfaPendingCookieOptions(token: string) {
+  return {
+    name: OAUTH_MFA_COOKIE,
+    value: token,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: OAUTH_MFA_TTL_SECONDS,
+  };
+}
+
+export function clearOAuthMfaPendingCookieOptions() {
+  return {
+    name: OAUTH_MFA_COOKIE,
+    value: '',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: 0,
+  };
+}
+
+export async function readOAuthMfaPendingUserId(): Promise<string | null> {
+  const token = cookies().get(OAUTH_MFA_COOKIE)?.value;
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, getSecret(), { audience: OAUTH_MFA_AUDIENCE });
+    return typeof payload.sub === 'string' ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
