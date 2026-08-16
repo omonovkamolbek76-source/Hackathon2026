@@ -19,14 +19,19 @@ import {
 import { useApp } from '@/lib/store';
 import { api } from '@/lib/client-api';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 export function ProfileScreen() {
-  const { navigate, user, logout } = useApp();
+  const { navigate, user, logout, refreshSession } = useApp();
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [qr, setQr] = useState('');
   const [mfaToken, setMfaToken] = useState('');
   const [csvText, setCsvText] = useState('2026-08-01,Naqd savdo,1500000\n2026-08-02,Ijara,-800000');
   const [notifications, setNotifications] = useState<{ id: string; title: string; body: string; read: boolean }[]>([]);
+  const [disableToken, setDisableToken] = useState('');
+  const [showDisableForm, setShowDisableForm] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ name: '', phone: '', businessName: '', region: '' });
 
   useEffect(() => {
     api<{ enabled: boolean }>('/api/mfa')
@@ -38,6 +43,43 @@ export function ProfileScreen() {
   }, []);
 
   if (!user) return null;
+
+  const disableMfa = async () => {
+    if (disableToken.length < 6) {
+      toast({ title: 'Kod kiriting', description: 'MFA o‘chirish uchun 6 xonali kod kerak' });
+      return;
+    }
+    try {
+      await api('/api/mfa', { method: 'DELETE', body: JSON.stringify({ token: disableToken }) });
+      setMfaEnabled(false);
+      setShowDisableForm(false);
+      setDisableToken('');
+      toast({ title: 'MFA o‘chirildi' });
+    } catch (e) {
+      toast({ title: 'Xato', description: e instanceof Error ? e.message : 'Kod noto‘g‘ri', variant: 'destructive' });
+    }
+  };
+
+  const startEditProfile = () => {
+    setProfileForm({
+      name: user.name || '',
+      phone: user.phone || '',
+      businessName: user.businessName || '',
+      region: user.region || '',
+    });
+    setEditingProfile(true);
+  };
+
+  const saveProfile = async () => {
+    try {
+      await api('/api/auth/me', { method: 'PATCH', body: JSON.stringify(profileForm) });
+      await refreshSession();
+      setEditingProfile(false);
+      toast({ title: 'Profil yangilandi' });
+    } catch (e) {
+      toast({ title: 'Xato', description: e instanceof Error ? e.message : 'Saqlanmadi', variant: 'destructive' });
+    }
+  };
 
   const setupMfa = async () => {
     const d = await api<{ qrDataUrl: string }>('/api/mfa', { method: 'POST' });
@@ -153,16 +195,38 @@ export function ProfileScreen() {
               </button>
             </div>
           )}
-          {mfaEnabled && (
+          {mfaEnabled && !showDisableForm && (
             <button
-              onClick={async () => {
-                await api('/api/mfa', { method: 'DELETE' });
-                setMfaEnabled(false);
-              }}
+              onClick={() => setShowDisableForm(true)}
               className="rounded-xl border px-4 py-2 text-xs font-semibold"
             >
               MFA o‘chirish
             </button>
+          )}
+          {mfaEnabled && showDisableForm && (
+            <div className="space-y-2">
+              <p className="text-[11px] text-muted-foreground">Tasdiqlash uchun joriy 6 xonali Authenticator kodini kiriting</p>
+              <input
+                value={disableToken}
+                onChange={(e) => setDisableToken(e.target.value)}
+                placeholder="6 xonali kod"
+                className="w-full rounded-xl border px-3 py-2 text-sm"
+              />
+              <div className="flex gap-2">
+                <button onClick={disableMfa} className="flex-1 rounded-xl bg-destructive py-2 text-xs font-bold text-destructive-foreground">
+                  Tasdiqlash va o‘chirish
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDisableForm(false);
+                    setDisableToken('');
+                  }}
+                  className="rounded-xl border px-4 py-2 text-xs font-semibold"
+                >
+                  Bekor qilish
+                </button>
+              </div>
+            </div>
           )}
         </div>
 
@@ -222,12 +286,47 @@ export function ProfileScreen() {
             <span className="flex-1 text-left text-sm font-semibold">Ma’lumotlarni eksport</span>
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </button>
-          <button className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3.5">
+          <button
+            onClick={() => (editingProfile ? setEditingProfile(false) : startEditProfile())}
+            className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3.5"
+          >
             <User className="h-5 w-5 text-primary" />
             <span className="flex-1 text-left text-sm font-semibold">Profil ma’lumotlari</span>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            <ChevronRight className={cn('h-5 w-5 text-muted-foreground transition-transform', editingProfile && 'rotate-90')} />
           </button>
         </div>
+
+        {editingProfile && (
+          <div className="mt-2 space-y-2 rounded-2xl border border-border bg-card p-4">
+            <input
+              value={profileForm.name}
+              onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="Ism"
+              className="w-full rounded-xl border px-3 py-2 text-sm"
+            />
+            <input
+              value={profileForm.phone}
+              onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
+              placeholder="Telefon"
+              className="w-full rounded-xl border px-3 py-2 text-sm"
+            />
+            <input
+              value={profileForm.businessName}
+              onChange={(e) => setProfileForm((f) => ({ ...f, businessName: e.target.value }))}
+              placeholder="Biznes nomi"
+              className="w-full rounded-xl border px-3 py-2 text-sm"
+            />
+            <input
+              value={profileForm.region}
+              onChange={(e) => setProfileForm((f) => ({ ...f, region: e.target.value }))}
+              placeholder="Hudud"
+              className="w-full rounded-xl border px-3 py-2 text-sm"
+            />
+            <button onClick={saveProfile} className="w-full rounded-xl bg-primary py-2 text-xs font-bold text-primary-foreground">
+              Saqlash
+            </button>
+          </div>
+        )}
 
         <button
           onClick={async () => {
