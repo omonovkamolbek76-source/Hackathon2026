@@ -198,7 +198,17 @@ export function BusinessPlanScreen() {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <h1 className="text-base font-bold text-foreground">Biznes reja</h1>
-        <button className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-foreground">
+        <button
+          onClick={() =>
+            toast({
+              title: 'Biznes reja qanday tuziladi?',
+              description:
+                'Siz kiritgan g‘oya, auditoriya va byudjet asosida tuzilma bo‘yicha (kontseptsiya, bozor, marketing, moliyaviy reja) hisobingizga saqlanadigan reja generatsiya qilinadi va Markdown formatida yuklab olinadi.',
+            })
+          }
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-foreground"
+          aria-label="Ma'lumot"
+        >
           <Info className="h-5 w-5" />
         </button>
       </header>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { ArrowLeft, Check, FileText, CreditCard, Users, Package, Megaphone, Sparkles, ChevronRight, Bell, Settings } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -30,12 +31,16 @@ const statusLabels: Record<string, string> = {
   upcoming: 'Rejada',
 };
 
+type TaskFilter = 'all' | 'today' | 'overdue';
+
 export function TasksScreen() {
   const { tasks, toggleTask, navigate, user } = useApp();
+  const [filter, setFilter] = useState<TaskFilter>('all');
 
   const allTasks = tasks;
   const todayTasks = tasks.filter((t) => t.status === 'today' || (t.status === 'completed' && t.dueDate === 'Bugun'));
   const overdueTasks = tasks.filter((t) => t.status === 'overdue');
+  const visibleTasks = filter === 'today' ? todayTasks : filter === 'overdue' ? overdueTasks : allTasks;
 
   const renderTaskCard = (task: Task) => {
     const Icon = categoryIcons[task.category] || FileText;
@@ -105,23 +110,44 @@ export function TasksScreen() {
 
         {/* Tabs */}
         <div className="mb-3 flex gap-2">
-          <div className="flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-foreground">
+          <button
+            onClick={() => setFilter('all')}
+            className={cn(
+              'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-foreground transition-colors',
+              filter === 'all' ? 'bg-primary/15 ring-1 ring-primary' : 'bg-accent',
+            )}
+          >
             Barchasi
             <span className="rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">{allTasks.length}</span>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-foreground">
+          </button>
+          <button
+            onClick={() => setFilter('today')}
+            className={cn(
+              'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-foreground transition-colors',
+              filter === 'today' ? 'bg-primary/15 ring-1 ring-primary' : 'bg-accent',
+            )}
+          >
             Bugungi
             <span className="rounded-full bg-chart-4 px-1.5 text-[10px] text-white">{todayTasks.length}</span>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-foreground">
+          </button>
+          <button
+            onClick={() => setFilter('overdue')}
+            className={cn(
+              'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-foreground transition-colors',
+              filter === 'overdue' ? 'bg-primary/15 ring-1 ring-primary' : 'bg-accent',
+            )}
+          >
             Kechiktirilgan
             <span className="rounded-full bg-destructive px-1.5 text-[10px] text-white">{overdueTasks.length}</span>
-          </div>
+          </button>
         </div>
 
-        {/* All Tasks */}
+        {/* Tasks */}
         <div className="space-y-2">
-          {allTasks.map(renderTaskCard)}
+          {visibleTasks.length === 0 && (
+            <p className="py-6 text-center text-xs text-muted-foreground">Bu bo‘limda vazifalar yo‘q</p>
+          )}
+          {visibleTasks.map(renderTaskCard)}
         </div>
 
         {/* Settings link */}

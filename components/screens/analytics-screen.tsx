@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Sparkles, TrendingUp, BarChart3, Star, Bot, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Sparkles, TrendingUp, BarChart3, Star, Bot } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { formatCurrency } from '@/lib/format';
 import {
@@ -47,10 +47,9 @@ export function AnalyticsScreen() {
           <h1 className="text-lg font-bold text-foreground">Tahlil</h1>
           <p className="text-[11px] text-muted-foreground">Sizning tranzaksiyalaringiz asosida</p>
         </div>
-        <button className="flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-xs font-medium text-foreground">
+        <span className="flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-xs font-medium text-foreground">
           Oxirgi 6 oy
-          <ChevronDown className="h-3.5 w-3.5" />
-        </button>
+        </span>
       </header>
 
       <div className="px-4 py-4 pb-20 md:px-6">
