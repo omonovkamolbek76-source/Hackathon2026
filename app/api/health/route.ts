@@ -1,6 +1,7 @@
 import { jsonOk, jsonError } from '@/lib/api';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { isProviderConfigured } from '@/lib/oauth/providers';
 
 export async function GET() {
   const started = Date.now();
@@ -18,6 +19,8 @@ export async function GET() {
       openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
       stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
       sentryConfigured: Boolean(process.env.SENTRY_DSN),
+      googleOAuthConfigured: isProviderConfigured('google'),
+      microsoftOAuthConfigured: isProviderConfigured('microsoft'),
       mfaAvailable: true,
       backupDir: process.env.BACKUP_DIR || './backups',
     };
