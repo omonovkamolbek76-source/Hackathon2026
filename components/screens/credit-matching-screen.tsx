@@ -15,6 +15,7 @@ export function CreditMatchingScreen() {
     selectedCreditIds,
     toggleSelectedCredit,
     matchedCredits,
+    setMatchedCredits,
     creditFlowAnswers,
     runCreditMatch,
   } = useApp();
@@ -34,8 +35,14 @@ export function CreditMatchingScreen() {
           const matched = await runCreditMatch();
           if (!cancelled) setProducts(matched);
         } else {
+          // Catalog fallback (no questionnaire answers yet): also persist into the
+          // store's matchedCredits so downstream screens (comparison, allocation)
+          // can find the products the user selects here.
           const data = await api<{ products: CreditProduct[] }>('/api/credits');
-          if (!cancelled) setProducts(data.products);
+          if (!cancelled) {
+            setProducts(data.products);
+            setMatchedCredits(data.products);
+          }
         }
       } catch (e) {
         toast({ title: 'Xato', description: e instanceof Error ? e.message : 'Yuklashda xato' });
@@ -46,7 +53,7 @@ export function CreditMatchingScreen() {
     return () => {
       cancelled = true;
     };
-  }, [matchedCredits, creditFlowAnswers, runCreditMatch]);
+  }, [matchedCredits, creditFlowAnswers, runCreditMatch, setMatchedCredits]);
 
   return (
     <div className="animate-fade-in">

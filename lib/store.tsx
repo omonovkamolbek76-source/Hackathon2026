@@ -1,9 +1,27 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import type { ScreenId, Task, AIMessage, User, CreditProduct, KPI, AnalyticsData, Transaction } from '@/types';
+import type { ScreenId, Task, AIMessage, User, CreditProduct, KPI, AnalyticsData, Transaction, FundAllocation } from '@/types';
 import { api } from '@/lib/client-api';
-import { demoRoadmap, demoFundAllocations } from '@/data/mock';
+import { demoRoadmap } from '@/data/mock';
+
+export const ALLOCATION_META: Record<string, { label: string; color: string; icon: string; defaultShare: number }> = {
+  equipment: { label: 'Uskuna', color: 'hsl(160 100% 33%)', icon: 'Wrench', defaultShare: 0.45 },
+  inventory: { label: 'Tovar', color: 'hsl(210 80% 55%)', icon: 'Package', defaultShare: 0.22 },
+  marketing: { label: 'Marketing', color: 'hsl(30 90% 55%)', icon: 'Megaphone', defaultShare: 0.13 },
+  working: { label: 'Aylanma mablag‘', color: 'hsl(270 60% 60%)', icon: 'Wallet', defaultShare: 0.12 },
+  reserve: { label: 'Zaxira', color: 'hsl(200 60% 50%)', icon: 'Shield', defaultShare: 0.08 },
+};
+
+function defaultAllocationsFor(total: number): FundAllocation[] {
+  return Object.entries(ALLOCATION_META).map(([category, meta]) => ({
+    category,
+    label: meta.label,
+    amount: Math.round((total * meta.defaultShare) / 100_000) * 100_000,
+    color: meta.color,
+    icon: meta.icon,
+  }));
+}
 
 type AuthUser = Pick<User, 'id' | 'email' | 'name' | 'phone' | 'businessName' | 'region'> & {
   role?: string;
@@ -47,6 +65,7 @@ interface AppStore {
   setCreditFlowAnswer: (key: string, value: string) => void;
   runCreditMatch: () => Promise<CreditProduct[]>;
   matchedCredits: CreditProduct[];
+  setMatchedCredits: (products: CreditProduct[]) => void;
 
   selectedCreditIds: string[];
   toggleSelectedCredit: (id: string) => void;
@@ -65,7 +84,10 @@ interface AppStore {
   actionSheetOpen: boolean;
   setActionSheetOpen: (open: boolean) => void;
 
-  fundAllocations: typeof demoFundAllocations;
+  fundAllocations: FundAllocation[];
+  loadAllocations: () => Promise<void>;
+  adjustAllocation: (category: string, delta: number) => void;
+  saveAllocations: () => Promise<void>;
   roadmap: typeof demoRoadmap;
 }
 
@@ -108,6 +130,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [actionSheetOpen, setActionSheetOpen] = useState(false);
+  const [fundAllocations, setFundAllocations] = useState<FundAllocation[]>([]);
 
   const navigate = useCallback((s: ScreenId) => {
     setScreen(s);
@@ -311,6 +334,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [loadAnalytics],
   );
 
+  const loadAllocations = useCallback(async () => {
+    const data = await api<{ allocations: { category: string; label: string; amount: number }[] }>('/api/allocations');
+    if (data.allocations.length > 0) {
+      setFundAllocations(
+        data.allocations.map((a) => ({
+          category: a.category,
+          label: a.label,
+          amount: a.amount,
+          color: ALLOCATION_META[a.category]?.color || 'hsl(210 80% 55%)',
+          icon: ALLOCATION_META[a.category]?.icon || 'Wallet',
+        })),
+      );
+      return;
+    }
+    const selected = matchedCredits.filter((p) => selectedCreditIds.includes(p.id));
+    const total =
+      selected.length > 0
+        ? selected.reduce((sum, p) => sum + (p.amountMin + p.amountMax) / 2, 0)
+        : 50_000_000;
+    setFundAllocations(defaultAllocationsFor(total));
+  }, [matchedCredits, selectedCreditIds]);
+
+  const adjustAllocation = useCallback((category: string, delta: number) => {
+    setFundAllocations((prev) =>
+      prev.map((a) => (a.category === category ? { ...a, amount: Math.max(0, a.amount + delta) } : a)),
+    );
+  }, []);
+
+  const saveAllocations = useCallback(async () => {
+    const data = await api<{ allocations: { category: string; label: string; amount: number }[] }>('/api/allocations', {
+      method: 'PUT',
+      body: JSON.stringify({
+        allocations: fundAllocations.map((a) => ({ category: a.category, label: a.label, amount: a.amount })),
+      }),
+    });
+    setFundAllocations(
+      data.allocations.map((a) => ({
+        category: a.category,
+        label: a.label,
+        amount: a.amount,
+        color: ALLOCATION_META[a.category]?.color || 'hsl(210 80% 55%)',
+        icon: ALLOCATION_META[a.category]?.icon || 'Wallet',
+      })),
+    );
+  }, [fundAllocations]);
+
   return (
     <AppContext.Provider
       value={{
@@ -341,6 +410,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setCreditFlowAnswer,
         runCreditMatch,
         matchedCredits,
+        setMatchedCredits,
         selectedCreditIds,
         toggleSelectedCredit,
         kpis,
@@ -350,7 +420,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addTransaction,
         actionSheetOpen,
         setActionSheetOpen,
-        fundAllocations: demoFundAllocations,
+        fundAllocations,
+        loadAllocations,
+        adjustAllocation,
+        saveAllocations,
         roadmap: demoRoadmap,
       }}
     >
