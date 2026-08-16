@@ -2,13 +2,12 @@
 
 import { ArrowLeft, Star, Check, X, Sparkles } from 'lucide-react';
 import { useApp } from '@/lib/store';
-import { demoCreditProducts } from '@/data/mock';
 import { formatCompact } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 export function CreditComparisonScreen() {
-  const { navigate, selectedCreditIds } = useApp();
-  const products = demoCreditProducts.filter((p) => selectedCreditIds.includes(p.id));
+  const { navigate, selectedCreditIds, matchedCredits } = useApp();
+  const products = matchedCredits.filter((p) => selectedCreditIds.includes(p.id));
 
   if (products.length < 2) {
     return (

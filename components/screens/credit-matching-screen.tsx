@@ -1,14 +1,52 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { ArrowLeft, CreditCard, Sparkles, Check, ShieldCheck, ChevronRight, Star } from 'lucide-react';
 import { useApp } from '@/lib/store';
-import { demoCreditProducts } from '@/data/mock';
-import { formatCurrency, formatCompact } from '@/lib/format';
+import { formatCompact } from '@/lib/format';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/client-api';
+import type { CreditProduct } from '@/types';
 
 export function CreditMatchingScreen() {
-  const { navigate, selectedCreditIds, toggleSelectedCredit } = useApp();
+  const {
+    navigate,
+    selectedCreditIds,
+    toggleSelectedCredit,
+    matchedCredits,
+    creditFlowAnswers,
+    runCreditMatch,
+  } = useApp();
+  const [products, setProducts] = useState<CreditProduct[]>(matchedCredits);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (matchedCredits.length > 0) {
+        setProducts(matchedCredits);
+        return;
+      }
+      setLoading(true);
+      try {
+        if (Object.keys(creditFlowAnswers).length > 0) {
+          const matched = await runCreditMatch();
+          if (!cancelled) setProducts(matched);
+        } else {
+          const data = await api<{ products: CreditProduct[] }>('/api/credits');
+          if (!cancelled) setProducts(data.products);
+        }
+      } catch (e) {
+        toast({ title: 'Xato', description: e instanceof Error ? e.message : 'Yuklashda xato' });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [matchedCredits, creditFlowAnswers, runCreditMatch]);
 
   return (
     <div className="animate-fade-in">
@@ -24,19 +62,21 @@ export function CreditMatchingScreen() {
         <div className="mb-4 flex items-center gap-2.5 rounded-2xl bg-primary/10 p-3.5">
           <Sparkles className="h-5 w-5 shrink-0 text-primary" />
           <p className="text-xs text-foreground">
-            AI sizning ehtiyojingiz va biznesingiz asosida 3 ta variant topdi.
+            Moslik ballari server algoritmi bilan hisoblanadi. Bu bank qarori emas — rasmiy manbada tasdiqlang.
           </p>
         </div>
 
+        {loading && <div className="text-sm text-muted-foreground">Yuklanmoqda...</div>}
+
         <div className="space-y-3">
-          {demoCreditProducts.map((product) => {
+          {products.map((product) => {
             const isSelected = selectedCreditIds.includes(product.id);
             return (
               <div
                 key={product.id}
                 className={cn(
                   'rounded-2xl border bg-card p-4 shadow-sm transition-all',
-                  isSelected ? 'border-primary ring-1 ring-primary/30' : 'border-border'
+                  isSelected ? 'border-primary ring-1 ring-primary/30' : 'border-border',
                 )}
               >
                 <div className="flex items-start justify-between">
@@ -59,97 +99,64 @@ export function CreditMatchingScreen() {
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <div className="rounded-xl bg-accent p-2.5">
                     <div className="text-[10px] text-muted-foreground">Summa</div>
-                    <div className="text-xs font-bold text-foreground">
+                    <div className="text-xs font-bold">
                       {formatCompact(product.amountMin)} – {formatCompact(product.amountMax)}
                     </div>
                   </div>
                   <div className="rounded-xl bg-accent p-2.5">
                     <div className="text-[10px] text-muted-foreground">Muddat</div>
-                    <div className="text-xs font-bold text-foreground">{product.termMonths} oygacha</div>
+                    <div className="text-xs font-bold">{product.termMonths} oy</div>
                   </div>
                   <div className="rounded-xl bg-accent p-2.5">
-                    <div className="text-[10px] text-muted-foreground">Foiz stavkasi</div>
-                    <div className="text-xs font-bold text-foreground">{product.interestRate}%</div>
+                    <div className="text-[10px] text-muted-foreground">Foiz (namuna)</div>
+                    <div className="text-xs font-bold">{product.interestRate}%</div>
                   </div>
                   <div className="rounded-xl bg-accent p-2.5">
                     <div className="text-[10px] text-muted-foreground">Imtiyozli davr</div>
-                    <div className="text-xs font-bold text-foreground">{product.gracePeriod} oy</div>
+                    <div className="text-xs font-bold">{product.gracePeriod} oy</div>
                   </div>
                 </div>
 
-                <div className="mt-2.5 space-y-1">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-muted-foreground">Garov:</span>
-                    <span className="font-medium text-foreground">{product.collateral}</span>
+                <div className="mt-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-1 text-xs font-bold text-primary">
+                    <Star className="h-3.5 w-3.5 fill-primary" />
+                    Moslik: {product.matchScore || '—'}
                   </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-muted-foreground">Maqsad:</span>
-                    <span className="font-medium text-foreground text-right">{product.purpose}</span>
-                  </div>
-                </div>
-
-                {/* Match Score */}
-                <div className="mt-3 flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    <Star className="h-4 w-4 fill-primary text-primary" />
-                    <span className="text-sm font-bold text-primary">Moslik {product.matchScore}%</span>
-                  </div>
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-accent">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all"
-                      style={{ width: `${product.matchScore}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-3 flex gap-2">
                   <button
-                    onClick={() => {
-                      navigate('credit-allocation');
-                      toast({ title: 'Kredit tanlandi', description: `${product.name} tanlandi` });
-                    }}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary py-2.5 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/90 active:scale-[0.98]"
-                  >
-                    Batafsil
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      toggleSelectedCredit(product.id);
-                      toast({
-                        title: isSelected ? 'Taqqoslashdan olib tashlandi' : 'Taqqoslashga qo‘shildi',
-                        description: product.name,
-                      });
-                    }}
+                    onClick={() => toggleSelectedCredit(product.id)}
                     className={cn(
-                      'flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors',
-                      isSelected
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-card text-foreground hover:bg-accent'
+                      'flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold',
+                      isSelected ? 'bg-primary text-primary-foreground' : 'bg-accent text-foreground',
                     )}
                   >
                     {isSelected ? <Check className="h-3.5 w-3.5" /> : null}
-                    {isSelected ? 'Qo‘shildi' : 'Taqqoslash'}
+                    {isSelected ? 'Tanlangan' : 'Tanlash'}
                   </button>
                 </div>
+                <p className="mt-2 text-[11px] text-muted-foreground">{product.recommendedReason}</p>
               </div>
             );
           })}
         </div>
 
-        {selectedCreditIds.length >= 2 && (
-          <button
-            onClick={() => navigate('credit-comparison')}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-navy py-3 text-sm font-bold text-white transition-colors hover:bg-navy-light active:scale-[0.98]"
-          >
-            <Star className="h-4 w-4" />
-            {selectedCreditIds.length} ta kreditni taqqoslash
-          </button>
+        {!loading && products.length === 0 && (
+          <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">
+            Avval AI orqali kredit anketasini to‘ldiring yoki katalogni qayta yuklang.
+          </div>
         )}
 
-        <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-          <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-          Ma&apos;lumotlaringiz himoyalangan
+        <button
+          disabled={selectedCreditIds.length === 0}
+          onClick={() => navigate('credit-comparison')}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
+        >
+          Taqqoslash
+          <ChevronRight className="h-4 w-4" />
+        </button>
+
+        <div className="mt-3 flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground">
+          <ShieldCheck className="h-3 w-3 text-primary" />
+          Stavkalar namuna — oilakredit.uz / bankda tasdiqlang
         </div>
       </div>
     </div>

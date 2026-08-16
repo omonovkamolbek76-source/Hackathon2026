@@ -16,3 +16,8 @@ android/build
 *.apk
 *.aab
 local.properties
+prisma/dev.db
+prisma/dev.db-journal
+prisma/test.db
+prisma/*.db
+

@@ -3,7 +3,6 @@
 import { ArrowLeft, Check, FileText, CreditCard, Users, Package, Megaphone, Sparkles, ChevronRight, Bell, Settings } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { Checkbox } from '@/components/ui/checkbox';
-import { demoUser } from '@/data/mock';
 import type { Task } from '@/types';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -32,7 +31,7 @@ const statusLabels: Record<string, string> = {
 };
 
 export function TasksScreen() {
-  const { tasks, toggleTask, navigate } = useApp();
+  const { tasks, toggleTask, navigate, user } = useApp();
 
   const allTasks = tasks;
   const todayTasks = tasks.filter((t) => t.status === 'today' || (t.status === 'completed' && t.dueDate === 'Bugun'));
@@ -95,11 +94,11 @@ export function TasksScreen() {
         {/* User Summary Card */}
         <div className="mb-4 flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5 shadow-sm">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-base font-bold text-primary-foreground">
-            {demoUser.name.charAt(0)}
+            {user?.name?.charAt(0) || 'T'}
           </div>
           <div className="flex-1">
-            <div className="text-sm font-bold text-foreground">{demoUser.name}</div>
-            <div className="text-[11px] text-muted-foreground">{demoUser.email}</div>
+            <div className="text-sm font-bold text-foreground">{user?.name}</div>
+            <div className="text-[11px] text-muted-foreground">{user?.email}</div>
           </div>
           <ChevronRight className="h-5 w-5 text-muted-foreground" />
         </div>

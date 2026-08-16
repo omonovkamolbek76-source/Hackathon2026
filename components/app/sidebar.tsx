@@ -51,9 +51,9 @@ export function Sidebar() {
       </nav>
       <div className="border-t border-border p-4">
         <div className="rounded-xl bg-accent p-3">
-          <div className="text-xs font-semibold text-foreground">Demo rejim</div>
+          <div className="text-xs font-semibold text-foreground">Ishchi rejim</div>
           <div className="mt-1 text-[11px] text-muted-foreground">
-            Ma&apos;lumotlar namuna uchun. Bank ma&apos;lumotlari haqiqiy emas.
+            Auth + DB saqlash yoqilgan. Kredit stavkalari rasmiy manbada tasdiqlansin.
           </div>
         </div>
       </div>

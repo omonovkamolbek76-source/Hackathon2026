@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phone        String   @default("")
+  businessName String   @default("")
+  region       String   @default("")
+  role         String   @default("user") // user | admin
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tasks          Task[]
+  transactions   Transaction[]
+  chatMessages   ChatMessage[]
+  businessPlans  BusinessPlan[]
+  creditApps     CreditApplication[]
+  allocations    FundAllocation[]
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  subtitle  String   @default("")
+  category  String   @default("planning")
+  status    String   @default("today")
+  dueDate   String   @default("")
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  amount    Int
+  type      String // income | expense
+  category  String   @default("other")
+  occurredAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, occurredAt])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  role      String // user | assistant
+  content   String
+  stage     Int?
+  stageName String?
+  quickReplies String? // JSON array string
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model BusinessPlan {
+  id               String   @id @default(cuid())
+  userId           String
+  businessName     String
+  targetAudience   String
+  budget           Int
+  description      String
+  concept          String
+  marketOpportunity String
+  competitors      String
+  marketingPlan    String
+  operationalPlan  String
+  financialPlan    String
+  expenses         String
+  expectedRevenue  String
+  breakeven        String
+  nextSteps        String // JSON array string
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model CreditProduct {
+  id           String  @id @default(cuid())
+  name         String
+  bank         String
+  amountMin    Int
+  amountMax    Int
+  interestRate Float
+  termMonths   Int
+  gracePeriod  Int     @default(0)
+  collateral   String
+  purposeTags  String // comma-separated: equipment,inventory,expansion,working,startup
+  active       Boolean @default(true)
+  sourceNote   String  @default("Illustrative catalog — verify on official bank / oilakredit.uz")
+  createdAt    DateTime @default(now())
+}
+
+model CreditApplication {
+  id        String   @id @default(cuid())
+  userId    String
+  answers   String // JSON
+  results   String // JSON matched products with scores
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model FundAllocation {
+  id        String   @id @default(cuid())
+  userId    String
+  category  String
+  label     String
+  amount    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@unique([userId, category])
+}

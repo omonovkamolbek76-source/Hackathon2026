@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { toast } from '@/hooks/use-toast';
 import type { BusinessPlan } from '@/types';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/client-api';
 
 const steps = ['G‘oya', 'Bozor', 'Moliyaviy reja'];
 
@@ -23,56 +24,49 @@ export function BusinessPlanScreen() {
   const [phase, setPhase] = useState<'form' | 'loading' | 'result'>('form');
   const [progress, setProgress] = useState(0);
   const [plan, setPlan] = useState<BusinessPlan | null>(null);
+  const [markdown, setMarkdown] = useState('');
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!form.businessName.trim() || !form.audience.trim() || !form.description.trim()) {
       toast({ title: 'Iltimos, barcha maydonlarni to‘ldiring', description: 'Biznes nomi, auditoriya va tavsif majburiy' });
       return;
     }
     setPhase('loading');
-    setProgress(0);
-
-    const interval = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 100) {
-          clearInterval(interval);
-          setPlan({
-            businessName: form.businessName,
-            targetAudience: form.audience,
-            budget: parseInt(form.budget) || 50000000,
-            description: form.description,
-            concept: `${form.businessName} — ekologik toza mahsulotlarni onlayn yetkazib berish xizmati. Biz sifatli, qulay va tezkor xizmat orqali mijozlarga qulaylik yaratamiz.`,
-            marketOpportunity:
-              "O‘zbekistonda ekologik toza mahsulotlarga talab yildan yilga o‘sib bormoqda. Onlayn savdo ulushi hozir 15% ni tashkil etadi va 2027-yilga borib 35% ga yetishi kutilmoqda.",
-            competitors:
-              "Asosiy raqobatchilar: Uzum Market, Yandex Market, mahalliy onlayn do‘konlar. Bizning afzalligimiz — ekologik toza mahsulotlar ixtisosligu va tezkor yetkazib berish.",
-            marketingPlan:
-              "Instagram va Telegram reklama kampaniyalari, influencerlar bilan hamkorlik, SEO optimizatsiya, va mijozlarga sodiqlik dasturi.",
-            operationalPlan:
-              "Ombor va logistika tizimini yo‘lga qo‘yish, 3-5 yetkazib beruvchi bilan shartnoma tuzish, onlayn platforma ishlab chiqish.",
-            financialPlan:
-              "Boshlang‘ich mablag‘ 50 mln so‘m. 6 oy ichida o‘zini oqlashi kutilmoqda. Oylik aylanma 30-40 mln so‘m, sof marja 15-20%.",
-            expenses:
-              "Uskuna: 20 mln, Tovar: 15 mln, Marketing: 5 mln, Ijara: 5 mln, Aylanma mablag‘: 5 mln so‘m.",
-            expectedRevenue:
-              "Birinchi oy: 15 mln so‘m, 3-oy: 30 mln so‘m, 6-oy: 50 mln so‘m, 12-oy: 100 mln so‘m oylik daromad.",
-            breakeven: "Taxminan 6-7 oydan keyin foyda ko‘rish kutilmoqda.",
-            nextSteps: [
-              "Biznes reja yakuniy ko‘rinishini tayyorlang",
-              "Ro‘yxatdan o‘tish va ruxsatnomalarni oling",
-              "Yetkazib beruvchilar bilan shartnomalar tuzing",
-              "Onlayn platformani ishga tushiring",
-              "Marketing kampaniyasini boshlang",
-              "Birinchi mijozlarni jalb qiling",
-            ],
-          });
-          setPhase('result');
-          toast({ title: 'Rejangiz tayyor!', description: 'AI biznes rejangizni muvaffaqiyatli yaratdi' });
-          return 100;
-        }
-        return p + 2;
+    setProgress(10);
+    try {
+      const tick = setInterval(() => setProgress((p) => Math.min(90, p + 10)), 120);
+      const data = await api<{ plan: BusinessPlan & { id?: string }; markdown: string }>('/api/business-plans', {
+        method: 'POST',
+        body: JSON.stringify({
+          businessName: form.businessName,
+          audience: form.audience,
+          budget: Number(form.budget) || 50_000_000,
+          description: form.description,
+        }),
       });
-    }, 50);
+      clearInterval(tick);
+      setProgress(100);
+      setPlan(data.plan);
+      setMarkdown(data.markdown);
+      setPhase('result');
+      toast({ title: 'Rejangiz saqlandi', description: 'Serverda yaratildi va hisobingizga yozildi' });
+    } catch (e) {
+      setPhase('form');
+      setProgress(0);
+      toast({ title: 'Xato', description: e instanceof Error ? e.message : 'Reja yaratilmadi' });
+    }
+  };
+
+  const downloadMarkdown = () => {
+    if (!markdown) return;
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${plan?.businessName || 'biznes-reja'}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Yuklandi', description: 'Markdown fayl saqlandi' });
   };
 
   if (phase === 'loading') {
@@ -169,11 +163,11 @@ export function BusinessPlanScreen() {
 
           <div className="mt-5 space-y-2">
             <button
-              onClick={() => toast({ title: 'PDF yuklab olindi', description: 'Biznes reja PDF formatida saqlandi' })}
+              onClick={downloadMarkdown}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90 active:scale-[0.98]"
             >
               <Download className="h-4 w-4" />
-              PDF yuklab olish
+              Markdown yuklab olish
             </button>
             <div className="flex gap-2">
               <button
