@@ -1,0 +1,336 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  fullName     String
+  role         String   @default("ENTREPRENEUR")
+  language     String   @default("uz")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  businesses     Business[]
+  refreshTokens  RefreshToken[]
+  auditLogs      AuditLog[]
+  conversations  AiConversation[]
+  decisions      AiDecisionLog[]
+  notifications  Notification[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Business {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile       BusinessProfile?
+  documents     BusinessDocument[]
+  financials    FinancialRecord[]
+  transactions  Transaction[]
+  credit        CreditProfile?
+  plans         BusinessPlan[]
+  healthScores  BusinessHealthScore[]
+  riskSignals   RiskSignal[]
+  conversations AiConversation[]
+  tasks         AiTask[]
+  decisions     AiDecisionLog[]
+  embeddings    Embedding[]
+  reviews       Review[]
+}
+
+model BusinessProfile {
+  id                 String   @id @default(cuid())
+  businessId         String   @unique
+  business           Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  industry           String?
+  region             String?
+  productsJson       String   @default("[]")
+  customersJson      String   @default("[]")
+  monthlyRevenueSom  Int?
+  monthlyExpenseSom  Int?
+  employees          Int?
+  suppliersJson      String   @default("[]")
+  goals              String?
+  onboardingText     String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model BusinessDocument {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  filename   String
+  mimeType   String
+  storageKey String
+  summary    String?
+  createdAt  DateTime @default(now())
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  nameUz    String
+  nameRu    String
+  nameEn    String
+  unit      String
+  category  String
+  createdAt DateTime @default(now())
+
+  prices   MarketPrice[]
+  demand   MarketDemand[]
+  offers   SupplierProduct[]
+}
+
+model Supplier {
+  id          String   @id @default(cuid())
+  name        String
+  region      String
+  reliability Int
+  quality     Int
+  source      String
+  createdAt   DateTime @default(now())
+
+  products SupplierProduct[]
+}
+
+model SupplierProduct {
+  id         String   @id @default(cuid())
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  unitPrice  Int
+  delivery   Int
+  taxes      Int
+  transaction Int
+  expectedRisk Int
+  capacityMonthly Int
+  updatedAt  DateTime @updatedAt
+  collectedAt DateTime
+  source     String
+  confidence Float
+
+  @@unique([supplierId, productId])
+}
+
+model MarketPrice {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  region      String
+  avgPrice    Int
+  minPrice    Int
+  maxPrice    Int
+  source      String
+  collectedAt DateTime
+  updatedAt   DateTime @updatedAt
+  confidence  Float
+}
+
+model MarketDemand {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  region      String
+  demandScore Int
+  changePct   Float
+  seasonal    String
+  source      String
+  collectedAt DateTime
+  updatedAt   DateTime @updatedAt
+  confidence  Float
+}
+
+model Buyer {
+  id        String   @id @default(cuid())
+  name      String
+  region    String
+  needSlug  String
+  volume    Int
+  createdAt DateTime @default(now())
+}
+
+model Transaction {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  kind       String
+  amountSom  Int
+  note       String?
+  occurredAt DateTime
+}
+
+model FinancialRecord {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  month      String
+  revenueSom Int
+  expenseSom Int
+  createdAt  DateTime @default(now())
+}
+
+model CreditProfile {
+  id         String   @id @default(cuid())
+  businessId String   @unique
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  score      Int
+  breakdown  String
+  updatedAt  DateTime @updatedAt
+}
+
+model BusinessPlan {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  title      String
+  content    String
+  createdAt  DateTime @default(now())
+}
+
+model BusinessHealthScore {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  score      Int
+  status     String
+  breakdown  String
+  summary    String
+  createdAt  DateTime @default(now())
+}
+
+model RiskSignal {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  level       String
+  reason      String
+  evidence    String
+  createdAt   DateTime @default(now())
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  businessId String?
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  authorHash String
+  text       String
+  rating     Int
+  createdAt  DateTime @default(now())
+  analysis   ReviewAnalysis?
+}
+
+model ReviewAnalysis {
+  id            String   @id @default(cuid())
+  reviewId      String   @unique
+  review        Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  sentiment     Float
+  suspicious    Boolean
+  duplicateLikely Boolean
+  freshness     Float
+  createdAt     DateTime @default(now())
+}
+
+model AiConversation {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessId String?
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  title      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  messages   AiMessage[]
+  tasks      AiTask[]
+}
+
+model AiMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String
+  content        String
+  cardsJson      String?
+  createdAt      DateTime       @default(now())
+}
+
+model AiTask {
+  id             String          @id @default(cuid())
+  businessId     String?
+  business       Business?       @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  conversationId String?
+  conversation   AiConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  title          String
+  status         String          @default("DONE")
+  createdAt      DateTime        @default(now())
+}
+
+model AiDecisionLog {
+  id                     String    @id @default(cuid())
+  userId                 String
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessId             String?
+  business               Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  agentName              String
+  taskType               String
+  inputReference         String
+  outputJson             String
+  confidence             Float
+  evidenceJson           String
+  toolsJson              String
+  latencyMs              Int
+  costEstimate           Float     @default(0)
+  humanApprovalRequired  Boolean   @default(false)
+  humanDecision          String?
+  helpful                Boolean?
+  feedback               String?
+  createdAt              DateTime  @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  meta      String
+  createdAt DateTime @default(now())
+}
+
+model Embedding {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  chunk      String
+  vectorJson String
+  createdAt  DateTime @default(now())
+}

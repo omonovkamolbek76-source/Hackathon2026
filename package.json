@@ -1,0 +1,30 @@
+{
+  "name": "businessos-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BusinessOS AI — O‘zbekiston tadbirkorlari uchun AI-powered business operating system",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @businessos/api --filter @businessos/web dev",
+    "dev:api": "pnpm --filter @businessos/api dev",
+    "dev:web": "pnpm --filter @businessos/web dev",
+    "build": "pnpm --filter @businessos/shared build && pnpm --filter @businessos/database build && pnpm --filter @businessos/api build && pnpm --filter @businessos/web build",
+    "test": "pnpm --filter @businessos/shared test && pnpm --filter @businessos/api test",
+    "db:generate": "pnpm --filter @businessos/database generate",
+    "db:migrate": "pnpm --filter @businessos/database migrate",
+    "db:seed": "pnpm --filter @businessos/database seed",
+    "db:reset": "pnpm --filter @businessos/database reset",
+    "lint": "pnpm --filter @businessos/web lint"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.33.3",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "prisma"
+    ]
+  }
+}
