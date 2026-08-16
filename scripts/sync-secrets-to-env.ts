@@ -1,39 +1,70 @@
 #!/usr/bin/env tsx
-/** Merge process.env secrets into .env (never prints values). */
+/** Merge process.env secrets into .env without wiping existing values. Never prints secrets. */
 import fs from 'fs';
 
 const KEYS = [
+  'DATABASE_URL',
+  'AUTH_SECRET',
+  'NEXT_PUBLIC_APP_NAME',
+  'APP_URL',
+  'NODE_ENV',
   'OPENAI_API_KEY',
   'OPENAI_MODEL',
   'SENTRY_DSN',
-  'DATABASE_URL',
-  'AUTH_SECRET',
+  'LOG_LEVEL',
   'STRIPE_SECRET_KEY',
   'STRIPE_WEBHOOK_SECRET',
   'STRIPE_PRICE_ID',
-  'APP_URL',
-  'LOG_LEVEL',
-];
+  'BACKUP_DIR',
+] as const;
 
 const path = '.env';
 const existing = fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : '';
 const map = new Map<string, string>();
+
 for (const line of existing.split(/\r?\n/)) {
-  if (!line || line.trim().startsWith('#') || !line.includes('=')) continue;
-  const i = line.indexOf('=');
-  map.set(line.slice(0, i), line.slice(i + 1));
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
+  const i = trimmed.indexOf('=');
+  const key = trimmed.slice(0, i);
+  let val = trimmed.slice(i + 1);
+  if (
+    (val.startsWith('"') && val.endsWith('"')) ||
+    (val.startsWith("'") && val.endsWith("'"))
+  ) {
+    val = val.slice(1, -1);
+  }
+  map.set(key, val);
 }
 
 let updated = 0;
 for (const key of KEYS) {
-  const v = process.env[key];
-  if (v != null && v !== '') {
-    map.set(key, JSON.stringify(v)); // quoted
+  const fromEnv = process.env[key];
+  if (fromEnv != null && fromEnv !== '') {
+    map.set(key, fromEnv);
     updated += 1;
   }
 }
 
-const header = `# TadbirkorAI .env — generated/updated by scripts/sync-secrets-to-env.ts\n`;
-const body = KEYS.map((k) => `${k}=${map.get(k) ?? '""'}`).join('\n') + '\n';
-fs.writeFileSync(path, header + body);
-console.log(`Synced ${updated} secret(s) into .env (values not shown)`);
+if (!map.get('AUTH_SECRET') || (map.get('AUTH_SECRET') || '').length < 32) {
+  map.set('AUTH_SECRET', require('crypto').randomBytes(48).toString('base64url'));
+  updated += 1;
+}
+if (!map.get('DATABASE_URL')) map.set('DATABASE_URL', 'file:./dev.db');
+if (!map.get('OPENAI_MODEL')) map.set('OPENAI_MODEL', 'gpt-4o-mini');
+if (!map.get('NEXT_PUBLIC_APP_NAME')) map.set('NEXT_PUBLIC_APP_NAME', 'TadbirkorAI');
+if (!map.get('APP_URL')) map.set('APP_URL', 'http://localhost:3000');
+if (!map.get('LOG_LEVEL')) map.set('LOG_LEVEL', 'info');
+if (!map.get('BACKUP_DIR')) map.set('BACKUP_DIR', './backups');
+
+const lines = [
+  '# TadbirkorAI .env (gitignored)',
+  ...KEYS.map((k) => `${k}="${(map.get(k) || '').replace(/"/g, '\\"')}"`),
+  '',
+];
+fs.writeFileSync(path, lines.join('\n'));
+console.log(`Synced ${updated} value(s) from process.env into .env`);
+for (const k of ['OPENAI_API_KEY', 'SENTRY_DSN', 'DATABASE_URL', 'AUTH_SECRET']) {
+  const v = map.get(k) || '';
+  console.log(`- ${k}: ${v ? `set (len ${v.length})` : 'empty'}`);
+}
