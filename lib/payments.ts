@@ -1,4 +1,4 @@
-import { randomBytes } from 'crypto';
+import { randomBytes, createHmac, timingSafeEqual } from 'crypto';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
@@ -69,4 +69,38 @@ export async function createPaymentSession(input: {
     },
   });
   return payment;
+}
+
+/**
+ * Verifies a Stripe webhook signature per Stripe's documented scheme
+ * (https://stripe.com/docs/webhooks#verify-manually), without requiring the
+ * Stripe SDK: header is `t=<timestamp>,v1=<hex hmac>`; signed payload is
+ * `${timestamp}.${rawBody}`; HMAC-SHA256 with the webhook signing secret.
+ * Rejects requests older than `toleranceSec` to mitigate replay attacks.
+ */
+export function verifyStripeWebhookSignature(
+  rawBody: string,
+  signatureHeader: string | null,
+  secret: string,
+  toleranceSec = 5 * 60,
+): boolean {
+  if (!signatureHeader) return false;
+  const parts = Object.fromEntries(
+    signatureHeader.split(',').map((p) => {
+      const [k, v] = p.split('=');
+      return [k, v];
+    }),
+  );
+  const timestamp = parts.t;
+  const v1 = parts.v1;
+  if (!timestamp || !v1) return false;
+
+  const age = Math.abs(Date.now() / 1000 - Number(timestamp));
+  if (!Number.isFinite(age) || age > toleranceSec) return false;
+
+  const expected = createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex');
+  const expectedBuf = Buffer.from(expected, 'hex');
+  const actualBuf = Buffer.from(v1, 'hex');
+  if (expectedBuf.length !== actualBuf.length) return false;
+  return timingSafeEqual(expectedBuf, actualBuf);
 }

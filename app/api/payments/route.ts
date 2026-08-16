@@ -5,6 +5,7 @@ import { writeAudit } from '@/lib/audit';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { jsonError, jsonOk } from '@/lib/api';
 import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export async function GET() {
   try {
@@ -52,6 +53,8 @@ export async function POST(request: Request) {
     return jsonOk({ payment }, { status: 201 });
   } catch (e) {
     if (e instanceof AuthError) return jsonError(e.message, e.status);
-    return jsonError(e instanceof Error ? e.message : 'Server xatosi', 500);
+    // Never leak internal/provider error details (e.g. raw Stripe API errors) to the client.
+    logger.error('payment_create_failed', { message: e instanceof Error ? e.message : 'unknown' });
+    return jsonError('To‘lov yaratib bo‘lmadi. Keyinroq qayta urinib ko‘ring.', 500);
   }
 }
