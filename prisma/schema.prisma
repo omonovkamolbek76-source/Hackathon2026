@@ -19,6 +19,7 @@ model User {
   mfaEnabled   Boolean  @default(false)
   mfaSecret    String   @default("")
   mfaTempSecret String  @default("")
+  sessionVersion Int    @default(0)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
