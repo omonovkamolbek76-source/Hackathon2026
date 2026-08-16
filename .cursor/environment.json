@@ -1,5 +1,5 @@
 {
   "name": "TadbirkorAI",
-  "install": "npm ci\nnpx prisma generate\nnpx prisma db push\nnpm run db:seed",
+  "install": "npm ci\nnpm run secrets:sync\nnpx prisma generate\nnpx prisma db push\nnpm run db:seed",
   "start": "npm run dev"
 }
