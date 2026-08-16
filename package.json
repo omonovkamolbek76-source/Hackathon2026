@@ -15,7 +15,10 @@
     "db:setup": "prisma db push && tsx prisma/seed.ts",
     "backup": "tsx scripts/backup.ts",
     "secrets:sync": "tsx scripts/sync-secrets-to-env.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "start:all": "bash start.sh",
+    "start:all:prod": "bash start.sh prod",
+    "start:all:postgres": "bash start.sh postgres"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
