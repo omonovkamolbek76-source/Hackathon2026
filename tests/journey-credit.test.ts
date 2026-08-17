@@ -22,6 +22,17 @@ describe('journey coach', () => {
     const r = coachRespond('Ishlab turgan biznes', 0, {});
     expect(r.quickReplies?.length).toBeGreaterThan(0);
   });
+
+  it('does not send a stated factory idea back to Tanishuv', () => {
+    const r = coachRespond(
+      "menda g'oya bor edi do'stim men g'ish savodi qurmoqchiman meni 500 milliard mablag'im bor shunga iqtisodiy huquqiy maslahatlar berildi",
+      0,
+      {},
+    );
+    expect(r.message).not.toMatch(/0\/9-bosqich: Tanishuv/);
+    expect(r.message).not.toMatch(/eng katta muammo/);
+    expect(r.stage).toBeGreaterThan(0);
+  });
 });
 
 describe('credit match', () => {

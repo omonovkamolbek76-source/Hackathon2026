@@ -6,6 +6,7 @@ import { detectBusinessStage } from '@/lib/ai-copilot/business-stage';
 import { scoreItem, prioritize, taskToPriorityInput } from '@/lib/ai-copilot/priority-engine';
 import { tryParseProposedAction, proposedActionSchema } from '@/lib/ai-copilot/actions';
 import { contextToPromptBlock, localPlatformReportReply, wantsPlatformReport, type CopilotContext } from '@/lib/ai-copilot/context-builder';
+import { extractOwnerName, extractCoachFacts, hasStatedBusinessIdea } from '@/lib/coach-extract';
 
 describe('scope-guard: business-only AI restriction', () => {
   it('allows genuine business/finance questions', () => {
@@ -100,6 +101,24 @@ describe('platform route hints from business utterances', () => {
   });
 });
 
+describe('coach fact extraction', () => {
+  it('reads Uzbek name introductions', () => {
+    expect(extractOwnerName('mani ismim Behruz')).toBe('Behruz');
+    expect(extractOwnerName('mening ismim behruz')).toBe('Behruz');
+    expect(extractOwnerName('ismim Behruz')).toBe('Behruz');
+  });
+
+  it('recognizes a brick-factory idea even with typos', () => {
+    const msg =
+      "menda g'oya bor edi do'stim men g'ish savodi qurmoqchiman meni 500 milliard mablag'im bor shunga iqtisodiy huquqiy maslahatlar berildi";
+    expect(hasStatedBusinessIdea(msg)).toBe(true);
+    const facts = extractCoachFacts(msg);
+    expect(facts.idea).toMatch(/G'isht zavodi/i);
+    expect(facts.capitalNote).toMatch(/500/);
+    expect(facts.product).toMatch(/G'isht/i);
+  });
+});
+
 describe('full local market advice (when Gemini is off)', () => {
   it('allows brick/market buying questions through the scope guard', () => {
     expect(checkScope("G'isht olmoqchiman bozordan")).toEqual({ allowed: true });
@@ -116,6 +135,53 @@ describe('full local market advice (when Gemini is off)', () => {
     expect(r.message).toMatch(/Statistika/i);
     expect(r.message).toMatch(/yetkazib|Tahlil|narx/i);
     expect(r.provider).toBe('local');
+  });
+
+  it('advises on a brick factory idea instead of dumping 0/9 Tanishuv', async () => {
+    const r = await runCoach({
+      message:
+        "menda g'oya bor edi do'stim men g'ish savodi qurmoqchiman meni 500 milliard mablag'im bor shunga iqtisodiy huquqiy maslahatlar berildi",
+      stage: 0,
+      allowGemini: false,
+    });
+    expect(r.provider).toBe('local');
+    expect(r.message).not.toMatch(/0\s*\/\s*9/);
+    expect(r.message).not.toMatch(/Tanishuv/i);
+    expect(r.message).not.toMatch(/eng katta muammo/i);
+    expect(r.message).toMatch(/g['\u2018\u2019]?isht|zavod/i);
+    expect(r.message).toMatch(/huquqiy|YaTT|MChJ/i);
+    expect(r.message).toMatch(/iqtisodiy|xarajat|talab/i);
+    expect(r.message).toMatch(/500/);
+  });
+
+  it('remembers a stated name and does not ask for it again', async () => {
+    const intro = await runCoach({
+      message: 'mani ismim Behruz',
+      stage: 0,
+      allowGemini: false,
+    });
+    expect(intro.message).toMatch(/Behruz/i);
+    expect(intro.message).not.toMatch(/ismingiz nima|ismingizni ayt/i);
+
+    const follow = await runCoach({
+      message: "g'isht zavodi ochmoqchiman, huquqiy maslahat bering",
+      stage: 0,
+      allowGemini: false,
+      context: {
+        ownerName: 'Behruz',
+        businessName: '',
+        stage: 'IDEA',
+        idea: "G'isht zavodi qurish",
+        industry: 'Ishlab chiqarish / qurilish',
+        targetCustomer: '',
+        goalsSummary: '',
+        financeSummary: "Jami kirim: 0 so'm, jami chiqim: 0 so'm, sof: 0 so'm",
+        tasksSummary: '',
+      },
+    });
+    expect(follow.message).toMatch(/Behruz/i);
+    expect(follow.message).not.toMatch(/ismingiz nima|ismingizni ayt|nima ismingiz/i);
+    expect(follow.message).not.toMatch(/0\s*\/\s*9|Tanishuv|eng katta muammo/i);
   });
 });
 
@@ -331,6 +397,23 @@ describe('least-data context builder', () => {
     const block = contextToPromptBlock(ctx);
     expect(block).toContain('IDEA');
     expect(block.length).toBeGreaterThan(0);
+  });
+
+  it('includes the owner name so the model must not re-ask it', () => {
+    const ctx: CopilotContext = {
+      ownerName: 'Behruz',
+      businessName: '',
+      stage: 'IDEA',
+      idea: "G'isht zavodi",
+      industry: '',
+      targetCustomer: '',
+      goalsSummary: '',
+      financeSummary: "Jami kirim: 0 so'm, jami chiqim: 0 so'm, sof: 0 so'm",
+      tasksSummary: '',
+    };
+    const block = contextToPromptBlock(ctx);
+    expect(block).toContain('Behruz');
+    expect(block).toMatch(/qayta so['\u2018\u2019]?ramang/i);
   });
 });
 
