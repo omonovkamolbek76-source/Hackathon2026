@@ -8,8 +8,11 @@ const KEYS = [
   'NEXT_PUBLIC_APP_NAME',
   'APP_URL',
   'NODE_ENV',
-  'OPENAI_API_KEY',
-  'OPENAI_MODEL',
+  'GEMINI_API_KEY',
+  'GEMINI_API_KEY_1',
+  'GEMINI_API_KEY_2',
+  'GEMINI_API_KEY_3',
+  'GEMINI_MODEL',
   'SENTRY_DSN',
   'LOG_LEVEL',
   'STRIPE_SECRET_KEY',
@@ -56,7 +59,7 @@ if (!map.get('AUTH_SECRET') || (map.get('AUTH_SECRET') || '').length < 32) {
   updated += 1;
 }
 if (!map.get('DATABASE_URL')) map.set('DATABASE_URL', 'file:./dev.db');
-if (!map.get('OPENAI_MODEL')) map.set('OPENAI_MODEL', 'gpt-4o-mini');
+if (!map.get('GEMINI_MODEL')) map.set('GEMINI_MODEL', 'gemini-2.0-flash');
 if (!map.get('NEXT_PUBLIC_APP_NAME')) map.set('NEXT_PUBLIC_APP_NAME', 'TadbirkorAI');
 if (!map.get('APP_URL')) map.set('APP_URL', 'http://localhost:3000');
 if (!map.get('LOG_LEVEL')) map.set('LOG_LEVEL', 'info');
@@ -69,7 +72,7 @@ const lines = [
 ];
 fs.writeFileSync(path, lines.join('\n'));
 console.log(`Synced ${updated} value(s) from process.env into .env`);
-for (const k of ['OPENAI_API_KEY', 'SENTRY_DSN', 'DATABASE_URL', 'AUTH_SECRET']) {
+for (const k of ['GEMINI_API_KEY', 'SENTRY_DSN', 'DATABASE_URL', 'AUTH_SECRET']) {
   const v = map.get(k) || '';
   console.log(`- ${k}: ${v ? `set (len ${v.length})` : 'empty'}`);
 }

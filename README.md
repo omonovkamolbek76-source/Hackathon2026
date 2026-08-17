@@ -7,9 +7,10 @@ O‘zbekiston tadbirkorlari uchun AI moliyaviy va biznes yordamchi.
 - Next.js 13 App Router + API Routes
 - Prisma + SQLite (Postgres: `docker compose up -d` + `DATABASE_URL`)
 - Auth: bcrypt + httpOnly JWT + **MFA (TOTP)** + **Google/Microsoft OAuth/OIDC** (ixtiyoriy)
-- Coach: lokal murabbiy + ixtiyoriy OpenAI
+- AI: **AI Business Copilot — faqat Google Gemini** (boshqa provider yo'q). Kalitsiz — lokal (AI bo'lmagan) qoida-asosidagi murabbiy.
+- Subscription: 5 reja (Free/Business/Business Pro/Financial/Financial Pro) — narx/limit DB'da (hardcode emas), backend-side entitlement + kunlik AI kvota
 - Bank V1: **CSV import** (PAN/CVV/OTP saqlanmaydi)
-- Payments: local checkout yoki Stripe
+- Payments: local checkout yoki Stripe (shu orqali subscription ham faollashadi)
 - Monitoring: structured JSON logs + `/api/health`
 - Backup: `npm run backup`
 
@@ -73,16 +74,34 @@ Ixtiyoriy — `.env`da kalitlar bo'sh bo'lsa, tugmalar bosilganda tushunarli xab
 
 Xavfsizlik: Authorization Code + PKCE (S256), `state`/`nonce` tekshiruvi, ID token imzosi+issuer+audience+muddat tekshiruvi, faqat ichki redirectlarga ruxsat (open-redirect himoyasi), rol har doim serverda `user` sifatida belgilanadi, email bir xilligi asosida hisoblar avtomatik birlashtirilmaydi — faqat profildan aniq "ulash" amali orqali.
 
+## AI Business Copilot (Gemini only)
+
+`.env`da `GEMINI_API_KEY` bo'sh bo'lsa, `/api/coach` avtomatik lokal (AI bo'lmagan) qoida-asosidagi murabbiyga tushadi — ilova hech qachon buzilmaydi. Kalit qo'yilgach:
+
+1. Kalit oling: https://aistudio.google.com/apikey → `.env`ga `GEMINI_API_KEY` sifatida yozing.
+2. Ixtiyoriy: bir nechta kalit — `GEMINI_API_KEY_1/2/3` (round-robin).
+3. Model nomi hardcode emas — `GEMINI_MODEL` orqali boshqariladi (default: `gemini-2.0-flash`).
+
+Xavfsizlik: AI faqat biznes/moliya/tadbirkorlik mavzusida javob beradi (`lib/ai-copilot/scope-guard.ts`), tizim ko'rsatmalarini oshkor qilmaydi, hech qachon pul o'tkazmaydi/kredit olmaydi, va faqat oldindan belgilangan 2 ta amalni (vazifa/tranzaksiya qo'shish) — foydalanuvchi aniq tasdiqlagandan keyingina — bajaradi.
+
+## Subscription
+
+5 reja: Free ($0), Business ($5), Business Pro ($10), Financial ($15), Financial Pro ($30) — narx/limit/xususiyatlar `SubscriptionPlan` jadvalida (seed orqali, admin API bilan o'zgartiriladigan). Har bir AI/financial so'rov **backend**da tekshiriladi (`lib/entitlements.ts`) — frontend tugmani yashirish yetarli emas. To'lov mavjud `lib/payments.ts` (local/Stripe) orqali — muvaffaqiyatli to'lov obunani avtomatik faollashtiradi.
+
 ## Env kalitlar
 
 | Kalit | Majburiy | Vazifa |
 |-------|----------|--------|
 | `AUTH_SECRET` | ha | JWT imzo |
 | `DATABASE_URL` | ha | DB |
-| `OPENAI_API_KEY` | yo‘q* | Real LLM coach |
+| `GEMINI_API_KEY` | yo‘q* | AI Business Copilot (Gemini) |
 | `SENTRY_DSN` | yo‘q | Monitoring |
-| `STRIPE_SECRET_KEY` | yo‘q | Real to‘lov |
+| `STRIPE_SECRET_KEY` | yo‘q | Real to‘lov / subscription |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yo‘q | Google orqali kirish |
 | `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` | yo‘q | Microsoft orqali kirish |
 
 \* Kalitsiz lokal murabbiy ishlaydi.
+
+## Uzoq muddatli xotira
+
+Loyihaning to'liq arxitektura rejasi, qabul qilingan qarorlar va "keyingi qadamlar" ro'yxati — [`AI_BUSINESS_MEMORY.md`](./AI_BUSINESS_MEMORY.md).

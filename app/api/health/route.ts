@@ -2,6 +2,7 @@ import { jsonOk, jsonError } from '@/lib/api';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { isProviderConfigured } from '@/lib/oauth/providers';
+import { isGeminiConfigured, getGeminiModel } from '@/lib/gemini/client';
 
 export async function GET() {
   const started = Date.now();
@@ -16,7 +17,8 @@ export async function GET() {
       latencyMs: Date.now() - started,
       database: 'up',
       creditCatalog: credits,
-      openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
+      geminiConfigured: isGeminiConfigured(),
+      geminiModel: getGeminiModel(),
       stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
       sentryConfigured: Boolean(process.env.SENTRY_DSN),
       googleOAuthConfigured: isProviderConfigured('google'),
