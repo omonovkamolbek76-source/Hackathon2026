@@ -33,11 +33,27 @@ export async function GET() {
     logger.debug('health_ok', { latencyMs: payload.latencyMs });
     return jsonOk(payload);
   } catch (e) {
-    logger.error('health_db_down', { error: e instanceof Error ? e.message : 'unknown' });
+    const rawMessage = e instanceof Error ? e.message : String(e);
+    const safeMessage = rawMessage
+      .replace(/postgres(?:ql)?:\/\/[^\s"']+/gi, '[redacted-connection-string]')
+      .slice(0, 500);
+    logger.error('health_db_down', { error: rawMessage });
     return jsonError('Database unavailable', 503, {
       ok: false,
       database: 'down',
       time: new Date().toISOString(),
+      // TEMPORARY diagnostic field — remove once root-caused.
+      debugErrorName: e instanceof Error ? e.constructor.name : typeof e,
+      debugErrorMessage: safeMessage,
+      debugHasUrl: Boolean(process.env.DATABASE_URL),
+      debugUrlLen: (process.env.DATABASE_URL || '').length,
+      debugUrlHost: (() => {
+        try {
+          return new URL((process.env.DATABASE_URL || '').replace(/^postgresql:/, 'postgres:')).host;
+        } catch {
+          return 'unparseable';
+        }
+      })(),
     });
   }
 }
