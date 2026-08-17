@@ -17,6 +17,11 @@ describe('journey coach', () => {
     const r = coachRespond('G‘oyam bor', 0, {});
     expect(r.stage).toBe(1);
   });
+
+  it('offers buttons for an operating business', () => {
+    const r = coachRespond('Ishlab turgan biznes', 0, {});
+    expect(r.quickReplies?.length).toBeGreaterThan(0);
+  });
 });
 
 describe('credit match', () => {

@@ -8,6 +8,7 @@ import {
   getPaymentsDueCandidates,
   getSubscriptionUpdateCandidates,
   getSwotDigestCandidates,
+  getTopicDigestCandidates,
   getSystemNotificationCandidates,
   getTaskReminderCandidates,
   getXReportCandidates,
@@ -38,6 +39,7 @@ async function collectCandidatesForUser(userId: string, enabled: EnabledCategori
     enabled.financialNotifications ? getZReportCandidates(userId) : Promise.resolve([]),
     enabled.businessNotifications ? getBusinessUpdateCandidates(userId) : Promise.resolve([]),
     enabled.businessNotifications ? getSwotDigestCandidates(userId) : Promise.resolve([]),
+    enabled.businessNotifications ? getTopicDigestCandidates(userId) : Promise.resolve([]),
     enabled.businessNotifications ? getApplicationUpdateCandidates(userId) : Promise.resolve([]),
     enabled.subscriptionNotifications ? getSubscriptionUpdateCandidates(userId) : Promise.resolve([]),
     // Security/payment relays are not gated by a per-category toggle (only

@@ -8,6 +8,7 @@ import { welcomeReply, JOURNEY_STAGES } from '@/lib/journey';
 import { EntitlementError, consumeAiQuota, requireAiQuota } from '@/lib/entitlements';
 import { buildCopilotContext } from '@/lib/ai-copilot/context-builder';
 import { writeAudit } from '@/lib/audit';
+import { ingestSurveyButton } from '@/lib/survey-store';
 
 export async function GET() {
   try {
@@ -125,6 +126,8 @@ export async function POST(request: Request) {
         content: parsed.data.message,
       },
     });
+
+    await ingestSurveyButton(user.id, parsed.data.message);
 
     const context = await buildCopilotContext(user.id);
     const reply = await runCoach({

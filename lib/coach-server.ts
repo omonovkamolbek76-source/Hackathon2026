@@ -4,6 +4,7 @@ import { checkScope, OFF_TOPIC_REPLY, INJECTION_REFUSAL_REPLY } from '@/lib/ai-c
 import { contextToPromptBlock, localPlatformReportReply, wantsPlatformReport, type CopilotContext } from '@/lib/ai-copilot/context-builder';
 import { tryParseProposedAction, type ProposedAction } from '@/lib/ai-copilot/actions';
 import { logger } from '@/lib/logger';
+import { defaultQuickReplies } from '@/lib/survey';
 
 /**
  * AI Business Copilot system instruction. This is the ONLY LLM used anywhere
@@ -173,7 +174,7 @@ export async function runCoach(req: CoachRequest): Promise<CoachResponse> {
         message: parsed.text || raw,
         stage,
         stageName: JOURNEY_STAGES[stage]?.name,
-        quickReplies: parsed.quickReplies,
+        quickReplies: parsed.quickReplies?.length ? parsed.quickReplies : defaultQuickReplies(stage),
         action,
         provider: 'gemini',
       };
@@ -203,7 +204,7 @@ export async function runCoach(req: CoachRequest): Promise<CoachResponse> {
     message: local.message,
     stage: local.stage,
     stageName: JOURNEY_STAGES[local.stage]?.name,
-    quickReplies: local.quickReplies,
+    quickReplies: local.quickReplies?.length ? local.quickReplies : defaultQuickReplies(local.stage),
     provider: 'local',
   };
 }

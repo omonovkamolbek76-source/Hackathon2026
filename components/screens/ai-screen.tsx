@@ -383,7 +383,7 @@ export function AIScreen() {
                           key={reply}
                           onClick={() => handleQuickReply(reply)}
                           disabled={isTyping}
-                          className="rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95 disabled:opacity-50"
+                          className="rounded-full border border-primary/30 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 active:scale-95 disabled:opacity-50"
                         >
                           {reply}
                         </button>
@@ -465,7 +465,7 @@ export function AIScreen() {
                 setInput(e.target.value);
               }}
               onKeyDown={(e) => e.key === 'Enter' && !isTyping && handleSend()}
-              placeholder={listening ? 'Tinglanmoqda...' : 'Savolingizni yozing...'}
+              placeholder={listening ? 'Tinglanmoqda...' : 'Ixtiyoriy: o‘zingiz yozing'}
               disabled={isTyping || listening}
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-60"
             />
@@ -495,7 +495,7 @@ export function AIScreen() {
         </div>
         <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground">
           <ShieldCheck className="h-3 w-3 text-primary" />
-          Server orqali saqlanadi · Karta/OTP so‘ralmaydi
+          Javob asosan tugma orqali · yozish ixtiyoriy · karta/OTP so‘ralmaydi
         </div>
       </div>
     </div>

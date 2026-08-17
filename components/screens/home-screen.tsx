@@ -7,6 +7,7 @@ import { MetricCard } from '@/components/app/metric-card';
 import { QuickActionCard } from '@/components/app/quick-action-card';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { SurveyCard } from '@/components/app/survey-card';
 
 export function HomeScreen() {
   const { navigate, user, kpis, transactions, addTransaction } = useApp();
@@ -27,6 +28,8 @@ export function HomeScreen() {
             <TrendingUp className="h-7 w-7" />
           </div>
         </div>
+
+        <SurveyCard />
 
         <div className="-mt-2 flex gap-2 overflow-x-auto scrollbar-hide pb-1">
           {kpis.length > 0 ? (

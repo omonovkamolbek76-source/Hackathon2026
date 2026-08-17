@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db';
+import { formatTopicDigest, parseSurveyAnswers } from '@/lib/survey';
 import {
   formatPaymentsDue,
   formatSwotDigest,
@@ -228,6 +229,31 @@ export async function getSwotDigestCandidates(userId: string, now: Date = new Da
       eventId: `swot:${plan.id}:${tashkentDayKey(now)}`,
       title: '\u{1F9E0} SWOT tahlili',
       message: formatSwotDigest(plan),
+    },
+  ];
+}
+
+export async function getTopicDigestCandidates(userId: string, now: Date = new Date()): Promise<NotificationCandidate[]> {
+  const profile = await prisma.businessProfile.findUnique({ where: { userId } });
+  const answers = parseSurveyAnswers(profile?.surveyAnswers);
+  const hasSurvey = Boolean(profile?.surveyDone || answers.path || answers.legal || answers.finance);
+  if (!hasSurvey) return [];
+  const [ledger, overdue] = await Promise.all([
+    getDailyLedger(userId, now),
+    prisma.task.count({ where: { userId, completed: false, status: 'overdue' } }),
+  ]);
+  return [
+    {
+      type: 'BUSINESS_UPDATE',
+      eventId: `topic-digest:${tashkentDayKey(now)}`,
+      title: '\u{1F4CC} Huquqiy / iqtisodiy / moliyaviy eslatma',
+      message: formatTopicDigest({
+        day: ledger.day,
+        answers,
+        todayTurnover: ledger.turnover,
+        todayCount: ledger.count,
+        overdueCount: overdue,
+      }),
     },
   ];
 }

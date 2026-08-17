@@ -60,8 +60,8 @@ export function welcomeReply(): CoachReply {
     stage: 0,
     quickReplies: [
       "G‘oyam bor",
+      "Ishlab turgan biznes",
       "Hali qidiryapman",
-      "Reja tayyor, kredit kerak",
       "Kredit topish",
       "Biznes reja",
     ],
@@ -175,7 +175,14 @@ export function coachRespond(
       return {
         message: `${stageLabel(1)}\n\nAjoyib. Qanday mahsulot/xizmat va kim uchun?`,
         stage: 1,
-        quickReplies: ["Savdo", "Xizmat", "Ishlab chiqarish", "Onlayn"],
+        quickReplies: ["Savdo", "Xizmat", "Ishlab chiqarish", "Onlayn / yetkazib berish"],
+      };
+    }
+    if (/ishlab turgan/i.test(t)) {
+      return {
+        message: `${stageLabel(8)}\n\nIshlab turgan biznes. Qaysi soha va qayerda sotiladi?`,
+        stage: 8,
+        quickReplies: ["Savdo", "Xizmat", "Ishlab chiqarish", "Onlayn / yetkazib berish"],
       };
     }
     if (/qidir/i.test(t)) {
