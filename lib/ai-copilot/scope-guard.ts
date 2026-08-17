@@ -52,7 +52,7 @@ const INJECTION_PATTERNS: RegExp[] = [
 ];
 
 const BUSINESS_LEXICON =
-  /biznes|tadbirkor|savdo|sotuv|kredit|soliq|moliya|moliyalashtirish|xarajat|daromad|foyda|reja|supplier|yetkazib|marketing|mijoz|narx|mahsulot|xizmat|bank|obuna|vazifa|kirim|chiqim|breakeven|startap|g['\u2018\u2019]oya|sarmoya|investor|ariza|hisobot|buxgalter|to['\u2018\u2019]lov|budjet|bozor|tahlil|analytics|platforma|tadbirkorai|uskuna|tovar|oylik|so['\u2018\u2019]m|million|gisht|g['\u2018\u2019]isht|qurilish|tsement|optom|chakana|statistika|olmoq|sotib|aylanma|swot|svot|ochchot|x-hisobot|z-hisobot|hisob[\s-]?kitob/i;
+  /biznes|tadbirkor|savdo|sotuv|kredit|soliq|moliya|moliyalashtirish|xarajat|daromad|foyda|reja|supplier|yetkazib|marketing|mijoz|narx|mahsulot|xizmat|bank|obuna|vazifa|kirim|chiqim|breakeven|startap|g['\u2018\u2019]oya|sarmoya|investor|ariza|hisobot|buxgalter|to['\u2018\u2019]lov|budjet|bozor|tahlil|analytics|platforma|tadbirkorai|uskuna|tovar|oylik|so['\u2018\u2019]m|million|milliard|mablag|gisht|g['\u2018\u2019]?ish(t)?|qurilish|tsement|optom|chakana|statistika|olmoq|sotib|aylanma|swot|svot|ochchot|x-hisobot|z-hisobot|hisob[\s-]?kitob|zavod|savod|qurmoq|iqtisodiy|huquqiy|yuridik|maslahat|ismim/i;
 
 function wordCount(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
@@ -62,7 +62,7 @@ function isLikelyFollowUp(text: string): boolean {
   // Journey / chat buttons and short replies must not be blocked — they are
   // continuations of an already in-scope business conversation.
   if (wordCount(text) <= 5) return true;
-  return /^(ha|yo['\u2018\u2019]?q|bor|yo['\u2018\u2019]q|yangi boshlayman|amaldagi|g['\u2018\u2019]oya)/i.test(text.trim());
+  return /^(ha|yo['\u2018\u2019]?q|bor|yo['\u2018\u2019]q|yangi boshlayman|amaldagi|g['\u2018\u2019]oya|ismim)/i.test(text.trim());
 }
 
 export type ScopeCheckResult =

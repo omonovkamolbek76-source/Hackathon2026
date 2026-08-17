@@ -9,6 +9,7 @@ import { formatPaymentsDue, formatSwotDigest, formatXReport, formatZReport, getD
  */
 
 export type CopilotContext = {
+  ownerName?: string;
   businessName: string;
   stage: string;
   idea: string;
@@ -34,8 +35,9 @@ function parseJsonArray(raw: string | null | undefined): string[] {
 }
 
 export async function buildCopilotContext(userId: string): Promise<CopilotContext> {
-  const [profile, incomeAgg, expenseAgg, openTasks, ledger, dues, latestPlan] = await Promise.all([
+  const [profile, user, incomeAgg, expenseAgg, openTasks, ledger, dues, latestPlan] = await Promise.all([
     prisma.businessProfile.findUnique({ where: { userId } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
     prisma.transaction.aggregate({ where: { userId, type: 'income' }, _sum: { amount: true } }),
     prisma.transaction.aggregate({ where: { userId, type: 'expense' }, _sum: { amount: true } }),
     prisma.task.findMany({
@@ -59,6 +61,7 @@ export async function buildCopilotContext(userId: string): Promise<CopilotContex
       : `Bugun (${ledger.day}): aylanma ${ledger.turnover.toLocaleString('uz-UZ')} so'm, xarajat ${ledger.expense.toLocaleString('uz-UZ')} so'm, sof ${ledger.net.toLocaleString('uz-UZ')} so'm, ${ledger.count} ta yozuv.`;
 
   return {
+    ownerName: user?.name?.trim() || '',
     businessName: profile?.businessName || '',
     stage: profile?.stage || 'IDEA',
     idea: profile?.idea || '',
@@ -79,6 +82,7 @@ export async function buildCopilotContext(userId: string): Promise<CopilotContex
 
 export function contextToPromptBlock(ctx: CopilotContext): string {
   return [
+    ctx.ownerName ? `Egasi ismi: ${ctx.ownerName} (ismni qayta so'ramang)` : '',
     `Biznes nomi: ${ctx.businessName || 'noma\u2019lum'}`,
     `Bosqich: ${ctx.stage}`,
     ctx.idea ? `G'oya: ${ctx.idea}` : '',

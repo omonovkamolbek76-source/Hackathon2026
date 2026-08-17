@@ -5,6 +5,17 @@ import { contextToPromptBlock, localPlatformReportReply, wantsPlatformReport, ty
 import { tryParseProposedAction, type ProposedAction } from '@/lib/ai-copilot/actions';
 import { logger } from '@/lib/logger';
 import { defaultQuickReplies } from '@/lib/survey';
+import {
+  asksForName,
+  extractOwnerName,
+  hasStatedBusinessIdea,
+  inferCoachStage,
+  isBrickFactoryTalk,
+  isBrickTalk,
+  isNameIntroduction,
+  isOnboardingTrap,
+  wantsDetailedAdvice,
+} from '@/lib/coach-extract';
 
 /**
  * AI Business Copilot system instruction. This is the ONLY LLM used anywhere
@@ -28,6 +39,11 @@ JAVOB USLUBI (to'liq maslahat):
 - X-hisobot, Z-hisobot, aylanma, bugungi hisob-kitob, to'lovlar yoki SWOT so'ralsa — FAQAT kontekstda berilgan platforma raqamlarini qaytaring. Yo'q bo'lsa "platformada yozuv yo'q" deng, raqam uydirmang.
 - Oxirida 2-4 ta qisqa tugma matni (quick replies) va platforma yo'nalishi bering.
 - Til: o'zbek lotin; ruscha yozsa — ruscha.
+
+SUHBAT (MUHIM — so'rovnomaga qaytma):
+- Foydalanuvchi g'oya, mahsulot, zavod, byudjet yoki maslahat yozgan bo'lsa — 0/9 Tanishuvga QAYTMANG. "eng katta muammo nima?" deb so'ramang. Bosqich yorlig'ini ("0/9-bosqich: Tanishuv") yozmang. To'g'ridan-to'g'ri iqtisodiy va huquqiy maslahat bering.
+- Egasi ismi kontekstda yoki xabarda bo'lsa — ismini QAYTA so'ramang. "Salom, <ism>" deb murojaat qiling.
+- Qisqa tanishuv savollari o'rniga biznes egasi bilan maslahatchi kabi gaplashing.
 
 Agar foydalanuvchi vazifa yoki xarajat/daromad yozishni so'rasa, javob oxiriga ALOHIDA qatorda JSON qo'shing:
 {"stage":N,"quick_replies":["...","..."],"action":{"intent":"create_task","confidence":0.0-1.0,"requires_confirmation":true,"data":{"title":"...","subtitle":"...","category":"tax|bank|hr|supply|marketing|planning"}}}
@@ -72,27 +88,79 @@ function parseMeta(raw: string): { text: string; stage?: number; quickReplies?: 
   return { text: raw.trim() };
 }
 
-function wantsDetailedAdvice(text: string): boolean {
-  return /olmoq|sotib|gisht|g['\u2018\u2019]isht|statistika|tahlil|bozor|narx|qancha|optom|qurilish|material|yetkazib|supplier|tovar/i.test(
-    text,
-  );
+function greeting(name?: string): string {
+  return name ? `${name}, ` : '';
 }
 
-function localDetailedAdvice(text: string, stage: number): CoachResponse {
-  const aboutBricks = /gisht|g['\u2018\u2019]isht|qurilish|tsement|blok/i.test(text);
+function localNameAck(name: string, idea?: string): CoachResponse {
+  const remembered = idea
+    ? `${name}, tushundim. Ismingizni saqladim — qayta so‘ramayman. ${idea} bo‘yicha davom etamiz. Qaysi qism kerak: bozor, moliya yoki yuridik?`
+    : `${name}, tushundim. Ismingizni saqladim — qayta so‘ramayman. G‘oyangiz yoki biznesingiz haqida yozing, iqtisodiy va huquqiy maslahat beraman.`;
+  return {
+    message: remembered,
+    stage: idea ? 1 : 0,
+    stageName: JOURNEY_STAGES[idea ? 1 : 0]?.name,
+    quickReplies: ['Iqtisodiy maslahat', 'Huquqiy qadamlar', 'Biznes reja', 'Bozor'],
+    provider: 'local',
+  };
+}
+
+function localDetailedAdvice(text: string, stage: number, ownerName?: string): CoachResponse {
+  const factory = isBrickFactoryTalk(text);
+  const aboutBricks = isBrickTalk(text);
+  const wantsLegal = /huquqiy|yuridik|yatt|mchj|soliq|litsenziya|ro['\u2018\u2019]yxat/i.test(text);
+  const wantsEconomy = /iqtisodiy|mablag|sarmoya|milliard|million|bozor|narx|statistika|tahlil/i.test(text) || factory;
   const wantsStats = /statistika|tahlil|raqam|foiz|qancha/i.test(text);
-  const product = aboutBricks ? "g'isht / qurilish materiali" : 'mahsulot';
-  const lines = [
-    aboutBricks
-      ? "G'isht (yoki boshqa qurilish materiali) olish — bu oddiy xaridor savoli emas, savdo qarori. Qisqa emas, tartib bilan yondashing."
-      : `Bozordan ${product} olishdan oldin talab, narx va yetkazib berishni alohida tekshiring.`,
-    '',
-    "1) Talab. Kim oladi (quruvchi, uy ta'miri, ulgurji)? Qaysi oyda ko'p olishadi? Yaqin atrofda nechta raqobatchi bor?",
-    "2) Narx. Optom va chakana farqini 3 ta yetkazib beruvchidan yozib oling. Tashish, tushirish va yaroqsiz mahsulot foizini ham qo'shing.",
-    "3) Sifat. Namuna oling: o'lcham, chidamlilik, namlik. Arzon partiya keyin qimmatga tushishi mumkin.",
-    "4) Xavf. Bitta bazaga bog'lanmang. Zaxira, saqlash joyi va qaytarish shartini oldindan gaplashib qo'ying.",
-  ];
-  if (wantsStats) {
+  const capital = text.match(/(\d+(?:[.,]\d+)?)\s*(milliard|mlrd|million|mln)/i);
+  const hi = greeting(ownerName);
+  const lines: string[] = [];
+
+  if (factory) {
+    lines.push(
+      `${hi}G‘isht zavodi (ishlab chiqarish) — bu xarid savoli emas, investitsiya qarori. So‘rovnomaga qaytmayman: g‘oyangiz bo‘yicha gaplashamiz.`,
+      '',
+      'Iqtisodiy (rejalashtirish, rasmiy emas):',
+      '1) Talab. Hududdagi qurilish sur’ati, ulgurji quruvchilar va raqobatchi zavodlar. 3 ta potentsial xaridor bilan narx va hajmni gaplashing.',
+      '2) Xarajat bloki. Loyiha: yer/ijara, pech va liniya, xomashyo (loy/qum), energiya, ish haqi, tashish, yaroqsiz mahsulot. Har birini alohida yozing — TAXMINIY, joyida hisoblang.',
+      '3) Sotuv. Optom shartnoma vs chakana. Bitta yirik buyurtmachiga bog‘lanmang.',
+    );
+    if (capital) {
+      lines.push(
+        `4) Siz aytgan mablag‘: ${capital[1]} ${capital[2]} — bu SIZNING raqamingiz, tasdiqlanmagan. Million/milliard adashmasligini tekshiring. Uni yer, uskuna, aylanma va zaxiraga bo‘lib yozing. Men bu summani bankda bor deb hisoblamayman.`,
+      );
+    }
+    lines.push(
+      '',
+      'Huquqiy (kafolat emas — rasmiy organda tekshiring):',
+      '• Yolg‘iz ishlasangiz odatda YaTT, sherik/yirik sarmoya bo‘lsa MChJ muhokama qilinadi — my.gov.uz / yuridik maslahatchi.',
+      '• Ishlab chiqarish: yer maqsadi, ekologik va sanitariya ruxsatlari bo‘lishi mumkin. Aniq ruxsat nomini uydirmayman — hokimiyat / vakolatli organda so‘rang.',
+      '• Soliq summasi va foizni men belgilamayman. Rejim va muddat — soliq.uz va buxgalter.',
+    );
+  } else if (aboutBricks) {
+    lines.push(
+      `${hi}G'isht (yoki boshqa qurilish materiali) olish — bu oddiy xaridor savoli emas, savdo qarori. Qisqa emas, tartib bilan yondashing.`,
+      '',
+      "1) Talab. Kim oladi (quruvchi, uy ta'miri, ulgurji)? Qaysi oyda ko'p olishadi? Yaqin atrofda nechta raqobatchi bor?",
+      "2) Narx. Optom va chakana farqini 3 ta yetkazib beruvchidan yozib oling. Tashish, tushirish va yaroqsiz mahsulot foizini ham qo'shing.",
+      "3) Sifat. Namuna oling: o'lcham, chidamlilik, namlik. Arzon partiya keyin qimmatga tushishi mumkin.",
+      "4) Xavf. Bitta bazaga bog'lanmang. Zaxira, saqlash joyi va qaytarish shartini oldindan gaplashib qo'ying.",
+    );
+  } else {
+    lines.push(
+      `${hi}G‘oyangiz bo‘yicha maslahatchi sifatida gaplashaman — tanishuv so‘rovnomasiga qaytmayman.`,
+      '',
+      '1) G‘oya va mijoz. Kim sotib oladi, nima uchun sizdan?',
+      '2) Bozor. Hududdagi raqobat va narx oralig‘ini 3 ta manbadan yozing.',
+      '3) Pul. Xarajat, aylanma va zaxira — TAXMINIY, joyida hisoblang. Rasmiy davlat raqamini uydirmayman.',
+    );
+    if (wantsLegal || wantsEconomy) {
+      lines.push(
+        '4) Huquqiy. YaTT yoki MChJ — my.gov.uz. Soliq — soliq.uz / buxgalter. Aniq soliq summasini kafolatlamayman.',
+      );
+    }
+  }
+
+  if (wantsStats && !factory) {
     lines.push(
       '',
       'Statistika (rejalashtirish, rasmiy emas):',
@@ -102,17 +170,35 @@ function localDetailedAdvice(text: string, stage: number): CoachResponse {
       '- Sizning shaxsiy kirim-chiqim raqamlaringiz platformadagi Tahlil sahifasida. Rasmiy davlat statistikasini men uydirmayman — mahalliy bozor va yetkazib beruvchidan oling.',
     );
   }
+
   lines.push(
     '',
-    "Keyingi qadamlar shu platformada: Tahlil (pul oqimi), Biznes reja (xarajat modeli), kerak bo'lsa Kredit mosligi.",
+    "Keyingi qadamlar shu platformada: Tahlil (pul oqimi), Biznes reja (xarajat modeli), kerak bo'lsa Kredit mosligi. Aniq huquqiy natija — rasmiy organda.",
   );
+
+  const outStage = factory || wantsLegal ? Math.max(stage, 4) : stage || 2;
   return {
     message: lines.join('\n'),
-    stage: stage || 2,
-    stageName: JOURNEY_STAGES[stage || 2]?.name,
-    quickReplies: ['Tahlil', 'Biznes reja', 'Kredit topish', 'Yetkazib beruvchi checklist'],
+    stage: outStage,
+    stageName: JOURNEY_STAGES[outStage]?.name,
+    quickReplies: factory || wantsLegal
+      ? ['YaTT/MChJ', 'Biznes reja', 'Bozor', 'soliq.uz']
+      : ['Tahlil', 'Biznes reja', 'Kredit topish', 'Yetkazib beruvchi checklist'],
     provider: 'local',
   };
+}
+
+function knownOwnerName(req: CoachRequest): string | undefined {
+  return req.context?.ownerName?.trim() || req.profile?.name?.trim() || extractOwnerName(req.message) || undefined;
+}
+
+function shouldRefuseOnboarding(req: CoachRequest, reply: string): boolean {
+  const known = Boolean(knownOwnerName(req) || extractOwnerName(req.message));
+  if (isOnboardingTrap(reply) && (wantsDetailedAdvice(req.message) || hasStatedBusinessIdea(req.message) || req.context?.idea)) {
+    return true;
+  }
+  if (asksForName(reply) && known) return true;
+  return false;
 }
 
 export async function runCoach(req: CoachRequest): Promise<CoachResponse> {
@@ -149,12 +235,36 @@ export async function runCoach(req: CoachRequest): Promise<CoachResponse> {
     };
   }
 
+  const ownerName = knownOwnerName(req);
+  const stage = inferCoachStage(req.message, req.stage, Boolean(req.context?.idea));
+
+  if (!req.message.trim()) {
+    const w = welcomeReply();
+    return {
+      message: w.message,
+      stage: w.stage,
+      stageName: JOURNEY_STAGES[w.stage]?.name,
+      quickReplies: w.quickReplies,
+      provider: 'local',
+    };
+  }
+
+  if (isNameIntroduction(req.message)) {
+    return localNameAck(ownerName || extractOwnerName(req.message) || '', req.context?.idea);
+  }
+
   if (req.allowGemini !== false && isGeminiConfigured()) {
     try {
       const contextBlock = req.context ? contextToPromptBlock(req.context) : '';
+      const alreadyTold =
+        wantsDetailedAdvice(req.message) || hasStatedBusinessIdea(req.message) || Boolean(req.context?.idea);
       const userText = [
         contextBlock ? `Biznes konteksti:\n${contextBlock}` : '',
-        `Joriy bosqich: ${req.stage}`,
+        ownerName ? `Egasi ismi: ${ownerName} — ismini qayta so'ramang, murojaatda ishlating.` : '',
+        alreadyTold
+          ? "Foydalanuvchi g'oya, mahsulot, byudjet yoki maslahatni ALLAQACHON yozgan. 0/9 Tanishuvga qaytmang, so'rovnoma qilmang, to'g'ridan-to'g'ri maslahat bering."
+          : '',
+        `Joriy bosqich: ${stage}`,
         `Xabar: ${req.message}`,
       ]
         .filter(Boolean)
@@ -168,13 +278,17 @@ export async function runCoach(req: CoachRequest): Promise<CoachResponse> {
         timeoutMs: 40_000,
       });
       const parsed = parseMeta(raw);
-      const stage = parsed.stage ?? req.stage;
+      const geminiText = parsed.text || raw;
+      if (shouldRefuseOnboarding(req, geminiText)) {
+        return localDetailedAdvice(req.message, stage, ownerName);
+      }
+      const outStage = parsed.stage ?? stage;
       const action = tryParseProposedAction(parsed.action) ?? undefined;
       return {
-        message: parsed.text || raw,
-        stage,
-        stageName: JOURNEY_STAGES[stage]?.name,
-        quickReplies: parsed.quickReplies?.length ? parsed.quickReplies : defaultQuickReplies(stage),
+        message: geminiText,
+        stage: outStage,
+        stageName: JOURNEY_STAGES[outStage]?.name,
+        quickReplies: parsed.quickReplies?.length ? parsed.quickReplies : defaultQuickReplies(outStage),
         action,
         provider: 'gemini',
       };
@@ -184,22 +298,17 @@ export async function runCoach(req: CoachRequest): Promise<CoachResponse> {
     }
   }
 
-  if (!req.message.trim()) {
-    const w = welcomeReply();
-    return {
-      message: w.message,
-      stage: w.stage,
-      stageName: JOURNEY_STAGES[w.stage]?.name,
-      quickReplies: w.quickReplies,
-      provider: 'local',
-    };
-  }
-
   if (wantsDetailedAdvice(req.message)) {
-    return localDetailedAdvice(req.message, req.stage);
+    return localDetailedAdvice(req.message, stage, ownerName);
   }
 
-  const local = coachRespond(req.message, req.stage, req.profile || {});
+  const local = coachRespond(req.message, stage, {
+    ...(req.profile || {}),
+    ...(ownerName ? { name: ownerName } : {}),
+  });
+  if (shouldRefuseOnboarding(req, local.message)) {
+    return localDetailedAdvice(req.message, stage, ownerName);
+  }
   return {
     message: local.message,
     stage: local.stage,

@@ -1,3 +1,5 @@
+import { hasStatedBusinessIdea, wantsDetailedAdvice } from '@/lib/coach-extract';
+
 /** TadbirkorAI — "Noldan Foydaga" journey engine (UI-agnostic). */
 
 export interface JourneyStage {
@@ -170,8 +172,15 @@ export function coachRespond(
   }
 
   // Stage-specific replies
-  if (currentStage === 0 || /g‘oyam bor|hali qidir|tanishuv/i.test(t)) {
-    if (/g‘oyam bor|goyam bor/i.test(t)) {
+  if (currentStage === 0 || /g[‘'\u2018\u2019]?oya(m)?\s+bor|hali qidir|tanishuv/i.test(t)) {
+    if (hasStatedBusinessIdea(text) || wantsDetailedAdvice(text)) {
+      return {
+        message: `Tushundim. G‘oyangiz bo‘yicha iqtisodiy va huquqiy yo‘nalish beraman — tanishuv so‘rovnomasiga qaytmayman.\n\nTalab, xarajat va YaTT/MChJ (my.gov.uz) ni tartib bilan yozing. Aniq soliq summasini uydirmayman — soliq.uz da tekshiring. Qaysi qismni chuqurlashtiramiz?`,
+        stage: Math.max(currentStage, 1),
+        quickReplies: ["Iqtisodiy", "Huquqiy", "Biznes reja", "Bozor"],
+      };
+    }
+    if (/g[‘'\u2018\u2019]?oya(m)?\s+bor|goya(m)?\s+bor/i.test(t)) {
       return {
         message: `${stageLabel(1)}\n\nAjoyib. Qanday mahsulot/xizmat va kim uchun?`,
         stage: 1,
@@ -244,13 +253,23 @@ export function coachRespond(
     };
   }
 
-  // Default: one clarifying question
+  if (hasStatedBusinessIdea(text) || wantsDetailedAdvice(text)) {
+    return {
+      message: `Tushundim. G‘oyangiz asosida maslahat beraman. Iqtisodiy tomon: talab, xarajat, aylanma. Huquqiy: YaTT/MChJ — my.gov.uz, soliq — soliq.uz (summani uydirmayman). Qaysi qism kerak?`,
+      stage: Math.max(currentStage, 1),
+      quickReplies: ["Iqtisodiy", "Huquqiy", "Biznes reja", "Bozor"],
+    };
+  }
+
+  // Default: one clarifying question — only when they have not already described the business
   const stage = currentStage;
+  const known = (profile.name || '').trim();
   return {
-    message: `${stageLabel(stage)}\n\nTushundim. Biznesingizda hozir eng katta muammo nima?`,
+    message: known
+      ? `${known}, qaysi masala bo‘yicha yordam kerak — moliya, savdo yoki yuridik?`
+      : `${stageLabel(stage)}\n\nTushundim. Biznesingizda hozir eng katta muammo nima?`,
     stage,
     quickReplies: ["Moliyalashtirish", "Savdo", "Xarajat", "Rivojlanish", "G‘oyani aniqlash"],
-    toolResult: profile.name ? undefined : undefined,
   };
 }
 
