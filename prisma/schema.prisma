@@ -40,6 +40,10 @@ model User {
   businessProfile BusinessProfile?
   subscriptions   Subscription[]
   aiUsageDaily    AiUsageDaily[]
+  telegramConnection    TelegramConnection?
+  telegramLinkTokens    TelegramLinkToken[]
+  notificationSettings  NotificationSettings?
+  telegramNotifications TelegramNotification[]
 }
 
 // One row per linked external identity provider account. `provider` +
@@ -298,6 +302,78 @@ model AiUsageDaily {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, day])
+}
+
+// ============================================================
+// Telegram push notification system — PLATFORM DATA ONLY.
+// No AI, no external data. See lib/telegram/*.
+// ============================================================
+
+// One row per user who has linked a Telegram account. `telegramChatId` is
+// the Telegram chat id used to send messages via the Bot API.
+model TelegramConnection {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  telegramChatId String   @unique
+  status         String   @default("active") // active | blocked | unlinked
+  connectedAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+// Short-lived, single-use token used to securely link a Telegram chat to a
+// platform user (Telegram deep-link `/start <token>`). Never reusable, never
+// guessable, and expires quickly — see lib/telegram/link.ts.
+model TelegramLinkToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Per-user opt-in/opt-out toggles. Defaults to all-enabled; a user who
+// disables a category never receives that category's notifications.
+model NotificationSettings {
+  id                        String   @id @default(cuid())
+  userId                    String   @unique
+  telegramEnabled           Boolean  @default(true)
+  taskNotifications         Boolean  @default(true)
+  financialNotifications    Boolean  @default(true)
+  businessNotifications     Boolean  @default(true)
+  subscriptionNotifications Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// One row per Telegram push attempt. `eventId` is derived from the SOURCE
+// platform record (e.g. a Task or Transaction id) — the unique constraint on
+// (userId, type, eventId) is what makes the checker idempotent and safe to
+// run from multiple server instances (see lib/telegram/checker.ts).
+model TelegramNotification {
+  id             String    @id @default(cuid())
+  userId         String
+  telegramChatId String
+  type           String // TASK_REMINDER | DEADLINE_REMINDER | FINANCIAL_UPDATE | BUSINESS_UPDATE | APPLICATION_UPDATE | SUBSCRIPTION_UPDATE | SYSTEM_NOTIFICATION
+  eventId        String // idempotency key, scoped to the source platform record
+  title          String
+  message        String
+  status         String    @default("pending") // pending | sent | failed | blocked
+  attempts       Int       @default(0)
+  sentAt         DateTime?
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, eventId])
+  @@index([userId, status])
+  @@index([status, createdAt])
 }
 
 model BankConnection {
