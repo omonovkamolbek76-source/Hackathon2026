@@ -2,6 +2,8 @@
 
 O‘zbekiston tadbirkorlari uchun AI moliyaviy va biznes yordamchi.
 
+**Jonli sayt:** [singular-daifuku-fa9902.netlify.app](https://singular-daifuku-fa9902.netlify.app)
+
 ## Stack
 
 - Next.js 13 App Router + API Routes
