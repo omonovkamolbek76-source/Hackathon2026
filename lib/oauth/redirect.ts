@@ -17,3 +17,26 @@ export function sanitizeRedirectPath(path: string | null | undefined): string {
     return '/';
   }
 }
+
+function isLocalhostUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.hostname === 'localhost' || u.hostname === '127.0.0.1';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Canonical app origin for OAuth redirect_uri. A non-local APP_URL always
+ * wins (must match the URI registered at Google/Microsoft). If APP_URL is
+ * missing or still localhost, use the incoming request origin so a deployed
+ * preview is not stuck sending users to http://localhost:3000.
+ */
+export function resolveAppUrl(request: Request): string {
+  const fromEnv = (process.env.APP_URL || '').trim().replace(/\/$/, '');
+  const origin = new URL(request.url).origin;
+  if (fromEnv && !isLocalhostUrl(fromEnv)) return fromEnv;
+  return origin;
+}
+
