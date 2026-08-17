@@ -119,7 +119,7 @@ Quyidagilar **ushbu bosqichda ATAYLAB qurilmadi** (sabab: joriy topshiriqda vizu
 2. **Admin panel UI** — subscription plan/price/limit boshqarish uchun. Hozircha faqat DB darajasida (`SubscriptionPlan` jadvali) va seed orqali sozlanadi; admin uchun API/UI keyingi bosqich.
 3. **Billing history UI** (invoice ro'yxati, upgrade/downgrade tugmalari to'liq oqimi) — backend qisman tayyor (`/api/subscription`), UI to'liq emas.
 4. **Financial Dashboard** (30-bo'lim vizual paneli), **Forecasting** (31-bo'lim), **Legal assistance moduli** (28-bo'lim), **Tax reserve avtomatik hisoblash** (27-bo'lim) — keyingi bosqich.
-5. **Daily notification tizimi** (19-bo'lim: kunlik push/eslatma) — hozircha `GET /api/tasks/today` orqali on-demand ishlaydi, avtomatik push/notification cron yo'q.
+5. ~~**Daily notification tizimi** (19-bo'lim: kunlik push/eslatma)~~ — **BAJARILDI** (quyidagi 6-bo'limga qarang: Telegram push notification tizimi).
 6. **Business onboarding wizard UI** (AI orqali profil to'ldirish suhbat oqimi) — backend (`/api/business-profile`) tayyor, chat orqali avtomatik to'ldirish keyingi bosqich.
 
 ---
@@ -151,6 +151,62 @@ Quyidagilar **ushbu bosqichda ATAYLAB qurilmadi** (sabab: joriy topshiriqda vizu
 - [x] `.env.example`, `/api/health` — Gemini holatini ko'rsatadi (OpenAI o'rniga)
 - [x] Testlar: scope-guard, business-stage, priority-engine, entitlements (real SQLite DB bilan, isolation tekshiruvi bilan), gemini client (fetch mock), actions — jami **83/83 test o'tdi** (36 tasi yangi)
 - [x] `npm run typecheck`, `npm test`, `npm run build` orqali tekshirildi (brauzer ISHLATILMADI, ko'rsatma bo'yicha — faqat fayl o'qish + kompilyatsiya darajasidagi tekshiruv)
+
+---
+
+## 6. Telegram Push Notification tizimi (2026-08-17)
+
+**Qat'iy qoida (buzilmagan):** bu modul FAQAT mavjud platforma ma'lumotlarini (Task, Transaction, BusinessPlan, CreditApplication, Subscription, in-app Notification) o'qib, Telegram orqali foydalanuvchiga yuboradi. **AI ISHLATILMAYDI** (Gemini chaqiruvi yo'q), tashqi ma'lumot/web-qidiruv yo'q, yangi ma'lumot o'ylab topilmaydi, database o'zgartirilmaydi (faqat o'z audit jadvaliga yozadi).
+
+### Arxitektura
+
+```
+TelegramConnection (userId ↔ telegramChatId)
+        ↑ linking: TelegramLinkToken (bir martalik, 10 daqiqa)
+NotificationSettings (per-user toggle: telegramEnabled/task/financial/business/subscription)
+        ↓
+lib/telegram/events.ts   — FAQAT DB query + fixed template, hech qanday AI/tashqi chaqiruv yo'q
+        ↓
+lib/telegram/checker.ts  — idempotency (userId+type+eventId unique constraint) + retry cap (3) + blocked-holat aniqlash
+        ↓
+lib/telegram/client.ts   — raw fetch Bot API wrapper (dependency yo'q)
+        ↓
+instrumentation.ts + lib/telegram/scheduler.ts — in-process setInterval (NOTIFICATION_INTERVAL_SECONDS, default 30)
+```
+
+### Muhim fayllar
+- `prisma/schema.prisma` — `TelegramConnection`, `TelegramLinkToken`, `NotificationSettings`, `TelegramNotification` (`@@unique([userId, type, eventId])` — bu bir vaqtda bir nechta backend instance ishlaganda ham duplikatni oldini oladi, chunki DB constraint darajasida "claim" qilinadi, tashqi lock/queue kerak emas)
+- `lib/telegram/client.ts` — `sendTelegramMessage`, Telegram xato turlarini klassifikatsiya qilish (`blocked` / `chat_not_found` / `rate_limited`)
+- `lib/telegram/link.ts` — xavfsiz linking token (bir martalik, muddati o'tadi)
+- `lib/telegram/events.ts` — 7 ta notification turi, har biri mavjud jadvaldan olinadi:
+  - `TASK_REMINDER` ← `Task.status = 'today'`
+  - `DEADLINE_REMINDER` ← `Task.status = 'overdue'`
+  - `FINANCIAL_UPDATE` ← yangi `Transaction`
+  - `BUSINESS_UPDATE` ← yangi `BusinessPlan`
+  - `APPLICATION_UPDATE` ← yangi `CreditApplication`
+  - `SUBSCRIPTION_UPDATE` ← `Subscription` (faollashtirilgan / tugash arafasida / bekor qilingan)
+  - `SYSTEM_NOTIFICATION` ← mavjud in-app `Notification` jadvalini oynalaydi (MFA/to'lov — allaqachon real backend logika orqali yaratilgan)
+- `lib/telegram/checker.ts` — settings bo'yicha filtr, "claim-then-send" (findUnique → create → send → update status), 3 marta muvaffaqiyatsizlikdan keyin abadiy to'xtaydi (infinite retry yo'q), "blocked" xatoda `TelegramConnection.status='blocked'`ga o'tkazadi
+- `app/api/telegram/{link,webhook,status,settings,connection,check}/route.ts` — linking, `/start <token>` handshake (bot boshqa hech narsa qilmaydi), status/sozlama/uzish, tashqi cron uchun ixtiyoriy trigger
+- `components/screens/profile-screen.tsx` — "Telegram bildirishnomalari" bo'limi (ulash/uzish + har bir turi uchun toggle)
+- `middleware.ts` — `/api/telegram/webhook` va `/api/telegram/check` public (cookie talab qilinmaydi, o'z ichida secret bilan himoyalangan)
+
+### Xavfsizlik
+- Linking token: tasodifiy (24 bayt), bir martalik (`usedAt`), 10 daqiqa amal qiladi
+- Webhook: `TELEGRAM_WEBHOOK_SECRET` orqali `X-Telegram-Bot-Api-Secret-Token` header tekshiriladi (sozlansa)
+- Bitta Telegram chat boshqa userga tegishli bo'lsa, qayta bog'lash rad etiladi (impersonation himoyasi)
+- Loglarda token/parol/API-kalit yo'q — faqat metadata (status kod, xato turi)
+- `/api/telegram/check` faqat `TELEGRAM_CRON_SECRET` bilan ishlaydi (session emas — infratuzilma-to-infratuzilma chaqiruv)
+
+### ENV
+`TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` (ixtiyoriy), `NOTIFICATION_INTERVAL_SECONDS` (default 30), `TELEGRAM_CRON_SECRET` (ixtiyoriy, tashqi cron uchun). Kalitsiz — butun modul passiv (`isTelegramConfigured() === false`), boshqa hech qaysi feature'ga ta'sir qilmaydi.
+
+### Test (`tests/telegram.test.ts`, 24 ta test)
+Client xato klassifikatsiyasi, link token lifecycle (yaratish/bir martalik/muddat), event candidate generatsiya (har bir turi uchun aniq DB maydonlari, foydalanuvchilar orasidagi izolyatsiya), checker idempotency (bir xil event ikki marta yuborilmaydi, tarmoq faqat bir marta chaqiriladi), sozlama (kategoriya/master switch) hurmat qilinishi, "blocked" holatni aniqlash, max-retry cap. Real dev-serverda `curl` orqali to'liq E2E: link → simulated Telegram `/start` webhook → status → settings toggle → unlink → cron-check sinovdan o'tkazildi (soxta bot token bilan, xatolar to'g'ri qayd etildi, urinishlar 3 tadan keyin to'xtadi, log shovqini yo'q).
+
+**Real Telegram bot bilan production sinovi qilinmadi** (haqiqiy `TELEGRAM_BOT_TOKEN` yo'q bu muhitda) — bu `UNKNOWN`: foydalanuvchi BotFather orqali bot yaratib, `TELEGRAM_BOT_TOKEN`/`TELEGRAM_BOT_USERNAME`ni Cursor Dashboard sirlariga qo'shishi va Telegram'da `setWebhook`ni `https://<domain>/api/telegram/webhook` ga (ixtiyoriy `secret_token` bilan) sozlashi kerak.
+
+---
 
 ## 5. Keyingi qadam (so'ralishi kerak)
 

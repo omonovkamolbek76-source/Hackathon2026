@@ -24,6 +24,11 @@ const KEYS = [
   'MICROSOFT_CLIENT_ID',
   'MICROSOFT_CLIENT_SECRET',
   'MICROSOFT_TENANT_ID',
+  'TELEGRAM_BOT_TOKEN',
+  'TELEGRAM_BOT_USERNAME',
+  'TELEGRAM_WEBHOOK_SECRET',
+  'TELEGRAM_CRON_SECRET',
+  'NOTIFICATION_INTERVAL_SECONDS',
 ] as const;
 
 const path = '.env';
@@ -64,6 +69,7 @@ if (!map.get('NEXT_PUBLIC_APP_NAME')) map.set('NEXT_PUBLIC_APP_NAME', 'Tadbirkor
 if (!map.get('APP_URL')) map.set('APP_URL', 'http://localhost:3000');
 if (!map.get('LOG_LEVEL')) map.set('LOG_LEVEL', 'info');
 if (!map.get('BACKUP_DIR')) map.set('BACKUP_DIR', './backups');
+if (!map.get('NOTIFICATION_INTERVAL_SECONDS')) map.set('NOTIFICATION_INTERVAL_SECONDS', '30');
 
 const lines = [
   '# TadbirkorAI .env (gitignored)',

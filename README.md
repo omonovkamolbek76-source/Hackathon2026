@@ -84,6 +84,17 @@ Xavfsizlik: Authorization Code + PKCE (S256), `state`/`nonce` tekshiruvi, ID tok
 
 Xavfsizlik: AI faqat biznes/moliya/tadbirkorlik mavzusida javob beradi (`lib/ai-copilot/scope-guard.ts`), tizim ko'rsatmalarini oshkor qilmaydi, hech qachon pul o'tkazmaydi/kredit olmaydi, va faqat oldindan belgilangan 2 ta amalni (vazifa/tranzaksiya qo'shish) — foydalanuvchi aniq tasdiqlagandan keyingina — bajaradi.
 
+## Telegram push notifications
+
+Ixtiyoriy modul — mavjud platforma ma'lumotlaridan (vazifalar, tranzaksiyalar, biznes reja, kredit arizasi, obuna, mavjud in-app bildirishnomalar) foydalanuvchiga Telegram orqali eslatma yuboradi. **AI ishlatilmaydi**, tashqi ma'lumot yo'q — faqat DB + tayyor shablon.
+
+1. [@BotFather](https://t.me/BotFather) orqali bot yarating → `TELEGRAM_BOT_TOKEN` va `TELEGRAM_BOT_USERNAME`ni `.env`ga yozing.
+2. Webhookni sozlang: `https://api.telegram.org/bot<TOKEN>/setWebhook?url=<APP_URL>/api/telegram/webhook` (ixtiyoriy `secret_token=<TELEGRAM_WEBHOOK_SECRET>` bilan).
+3. Profil ekranidagi "Telegramni ulash" tugmasi orqali foydalanuvchi o'z Telegram hisobini xavfsiz (bir martalik, 10 daqiqalik token) bog'laydi.
+4. Tekshiruv oralig'i `NOTIFICATION_INTERVAL_SECONDS` (default 30) — ichki jarayon (`instrumentation.ts`) orqali avtomatik ishlaydi; serverless muhitlar uchun `POST /api/telegram/check` (himoyalangan `TELEGRAM_CRON_SECRET` bilan) tashqi cron orqali ham chaqirilishi mumkin.
+
+Kalitsiz — modul to'liq passiv, boshqa hech narsaga ta'sir qilmaydi. Batafsil: `AI_BUSINESS_MEMORY.md` 6-bo'lim.
+
 ## Subscription
 
 5 reja: Free ($0), Business ($5), Business Pro ($10), Financial ($15), Financial Pro ($30) — narx/limit/xususiyatlar `SubscriptionPlan` jadvalida (seed orqali, admin API bilan o'zgartiriladigan). Har bir AI/financial so'rov **backend**da tekshiriladi (`lib/entitlements.ts`) — frontend tugmani yashirish yetarli emas. To'lov mavjud `lib/payments.ts` (local/Stripe) orqali — muvaffaqiyatli to'lov obunani avtomatik faollashtiradi.
@@ -99,6 +110,9 @@ Xavfsizlik: AI faqat biznes/moliya/tadbirkorlik mavzusida javob beradi (`lib/ai-
 | `STRIPE_SECRET_KEY` | yo‘q | Real to‘lov / subscription |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yo‘q | Google orqali kirish |
 | `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` | yo‘q | Microsoft orqali kirish |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_BOT_USERNAME` | yo‘q | Telegram push notification |
+| `TELEGRAM_WEBHOOK_SECRET` / `TELEGRAM_CRON_SECRET` | yo‘q | Telegram webhook/cron himoyasi |
+| `NOTIFICATION_INTERVAL_SECONDS` | yo‘q | Telegram checker oralig'i (default 30) |
 
 \* Kalitsiz lokal murabbiy ishlaydi.
 
