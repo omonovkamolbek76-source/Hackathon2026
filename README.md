@@ -6,7 +6,7 @@ O‘zbekiston tadbirkorlari uchun AI moliyaviy va biznes yordamchi.
 
 - Next.js 13 App Router + API Routes
 - Prisma + SQLite (Postgres: `docker compose up -d` + `DATABASE_URL`)
-- Auth: bcrypt + httpOnly JWT + **MFA (TOTP)**
+- Auth: bcrypt + httpOnly JWT + **MFA (TOTP)** + **Google/Microsoft OAuth/OIDC** (ixtiyoriy)
 - Coach: lokal murabbiy + ixtiyoriy OpenAI
 - Bank V1: **CSV import** (PAN/CVV/OTP saqlanmaydi)
 - Payments: local checkout yoki Stripe
@@ -63,6 +63,16 @@ npm run build
 npm run backup
 ```
 
+## Google / Microsoft orqali kirish
+
+Ixtiyoriy — `.env`da kalitlar bo'sh bo'lsa, tugmalar bosilganda tushunarli xabar bilan login ekraniga qaytariladi (email+parol bilan kirish har doim ishlaydi).
+
+1. **Google**: [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → OAuth client ID (Web application) → Authorized redirect URI: `{APP_URL}/api/auth/google/callback` → `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`ni `.env`ga yozing.
+2. **Microsoft**: [Azure Portal](https://portal.azure.com) → App registrations → New registration → Supported account types: *"Accounts in any organizational directory and personal Microsoft accounts"* → Redirect URI (Web): `{APP_URL}/api/auth/microsoft/callback` → `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET`ni yozing. Faqat bitta tashkilotga cheklash uchun `MICROSOFT_TENANT_ID` ni to'ldiring (bo'sh bo'lsa `common` ishlatiladi).
+3. Server qayta ishga tushirilgach, login ekranida "Google/Microsoft orqali davom etish" tugmalari real ishlaydi.
+
+Xavfsizlik: Authorization Code + PKCE (S256), `state`/`nonce` tekshiruvi, ID token imzosi+issuer+audience+muddat tekshiruvi, faqat ichki redirectlarga ruxsat (open-redirect himoyasi), rol har doim serverda `user` sifatida belgilanadi, email bir xilligi asosida hisoblar avtomatik birlashtirilmaydi — faqat profildan aniq "ulash" amali orqali.
+
 ## Env kalitlar
 
 | Kalit | Majburiy | Vazifa |
@@ -72,5 +82,7 @@ npm run backup
 | `OPENAI_API_KEY` | yo‘q* | Real LLM coach |
 | `SENTRY_DSN` | yo‘q | Monitoring |
 | `STRIPE_SECRET_KEY` | yo‘q | Real to‘lov |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yo‘q | Google orqali kirish |
+| `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` | yo‘q | Microsoft orqali kirish |
 
 \* Kalitsiz lokal murabbiy ishlaydi.
