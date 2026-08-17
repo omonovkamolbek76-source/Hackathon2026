@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db';
+import { formatDailyCoachingTip, formatOnboardingCompleteMessage } from '@/lib/onboarding';
 import {
   formatPaymentsDue,
   formatSwotDigest,
@@ -228,6 +229,50 @@ export async function getSwotDigestCandidates(userId: string, now: Date = new Da
       eventId: `swot:${plan.id}:${tashkentDayKey(now)}`,
       title: '\u{1F9E0} SWOT tahlili',
       message: formatSwotDigest(plan),
+    },
+  ];
+}
+
+export async function getOnboardingCompleteCandidates(userId: string): Promise<NotificationCandidate[]> {
+  const profile = await prisma.businessProfile.findUnique({ where: { userId } });
+  if (!profile?.onboardingCompleted) return [];
+  return [
+    {
+      type: 'BUSINESS_UPDATE',
+      eventId: `onboarding-complete:${profile.id}`,
+      title: '\u2705 Profil tayyor',
+      message: formatOnboardingCompleteMessage({
+        path: profile.path,
+        businessName: profile.businessName,
+        idea: profile.idea,
+        product: profile.product,
+        marketEntry: profile.marketEntry,
+        tracksFinances: profile.tracksFinances,
+      }),
+    },
+  ];
+}
+
+export async function getCoachingTipCandidates(userId: string, now: Date = new Date()): Promise<NotificationCandidate[]> {
+  const profile = await prisma.businessProfile.findUnique({ where: { userId } });
+  if (!profile?.onboardingCompleted) return [];
+  const ledger = await getDailyLedger(userId, now);
+  return [
+    {
+      type: 'BUSINESS_UPDATE',
+      eventId: `coach-tip:${tashkentDayKey(now)}`,
+      title: '\u{1F4CC} Kunlik yo\u2018nalish',
+      message: formatDailyCoachingTip({
+        path: profile.path,
+        stage: profile.stage,
+        idea: profile.idea,
+        product: profile.product,
+        marketEntry: profile.marketEntry,
+        tracksFinances: profile.tracksFinances,
+        todayTurnover: ledger.turnover,
+        todayCount: ledger.count,
+        day: ledger.day,
+      }),
     },
   ];
 }

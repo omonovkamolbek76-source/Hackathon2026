@@ -29,6 +29,10 @@ function serializeProfile(profile: {
   stage: string;
   goals: string;
   challenges: string;
+  path: string;
+  marketEntry: string;
+  tracksFinances: boolean;
+  onboardingCompleted: boolean;
 }) {
   return {
     businessName: profile.businessName,
@@ -45,6 +49,10 @@ function serializeProfile(profile: {
     stage: profile.stage,
     goals: parseJsonArray(profile.goals),
     challenges: parseJsonArray(profile.challenges),
+    path: profile.path,
+    marketEntry: profile.marketEntry,
+    tracksFinances: profile.tracksFinances,
+    onboardingCompleted: profile.onboardingCompleted,
   };
 }
 

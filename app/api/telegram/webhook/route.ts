@@ -6,6 +6,7 @@ import { writeAudit } from '@/lib/audit';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 import { jsonError, jsonOk } from '@/lib/api';
+import { formatWelcomeMessage } from '@/lib/onboarding';
 
 /**
  * POST /api/telegram/webhook — receives Telegram Bot updates.
@@ -91,7 +92,11 @@ export async function POST(request: Request) {
       });
       await writeAudit({ userId: result.userId, action: 'telegram.linked' });
 
-      await replyToChat(chatId, '\u2705 Telegram hisobingiz TadbirkorAI platformasiga ulandi! Endi muhim yangilanishlarni shu yerda olasiz.');
+      const owner = await prisma.user.findUnique({
+        where: { id: result.userId },
+        select: { name: true, businessName: true },
+      });
+      await replyToChat(chatId, formatWelcomeMessage(owner?.name || '', owner?.businessName || ''));
       return jsonOk({ ok: true });
     }
 
