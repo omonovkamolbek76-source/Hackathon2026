@@ -122,3 +122,7 @@ Kalitsiz — modul to'liq passiv, boshqa hech narsaga ta'sir qilmaydi. Batafsil:
 ## Uzoq muddatli xotira
 
 Loyihaning to'liq arxitektura rejasi, qabul qilingan qarorlar va "keyingi qadamlar" ro'yxati — [`AI_BUSINESS_MEMORY.md`](./AI_BUSINESS_MEMORY.md).
+
+## Prezentatsiya
+
+Loyiha taqdimoti (muammo, bozor hajmi, monetizatsiya, roadmap, jamoa) — [`docs/TadbirkorAI-Prezentatsiya.pdf`](./docs/TadbirkorAI-Prezentatsiya.pdf).
