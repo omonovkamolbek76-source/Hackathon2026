@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkScope, OFF_TOPIC_REPLY, INJECTION_REFUSAL_REPLY } from '@/lib/ai-copilot/scope-guard';
+import { detectPlatformRoute } from '@/lib/ai-copilot/platform-route';
 import { detectBusinessStage } from '@/lib/ai-copilot/business-stage';
 import { scoreItem, prioritize, taskToPriorityInput } from '@/lib/ai-copilot/priority-engine';
 import { tryParseProposedAction, proposedActionSchema } from '@/lib/ai-copilot/actions';
@@ -53,6 +54,26 @@ describe('scope-guard: business-only AI restriction', () => {
     }
   });
 
+  it('rejects everyday non-business topics (including typical voice queries)', () => {
+    const offTopic = [
+      'Bugun ob-havo qanday?',
+      'Futbol o‘yini haqida gapirib ber',
+      'Menga hazil ayt',
+      'Yaxshi serial tavsiya qil',
+      'Kecha ko‘rgan filmim yaxshimi edi, qahramon o‘lishi kerakmidi?',
+    ];
+    for (const msg of offTopic) {
+      const r = checkScope(msg);
+      expect(r.allowed).toBe(false);
+      if (!r.allowed) expect(r.reason).toBe('off_topic');
+    }
+  });
+
+  it('allows short journey follow-ups without an explicit business keyword', () => {
+    expect(checkScope('Yangi boshlayman')).toEqual({ allowed: true });
+    expect(checkScope('Ha')).toEqual({ allowed: true });
+  });
+
   it('allows empty input (handled elsewhere as a welcome message)', () => {
     expect(checkScope('')).toEqual({ allowed: true });
   });
@@ -60,6 +81,16 @@ describe('scope-guard: business-only AI restriction', () => {
   it('exposes non-empty, platform-appropriate refusal messages', () => {
     expect(OFF_TOPIC_REPLY.length).toBeGreaterThan(10);
     expect(INJECTION_REFUSAL_REPLY.length).toBeGreaterThan(10);
+  });
+});
+
+describe('platform route hints from business utterances', () => {
+  it('points credit/finance speech to the credit-matching screen', () => {
+    expect(detectPlatformRoute('Menga kredit kerak')?.screen).toBe('credit-matching');
+  });
+
+  it('points business-plan speech to the plan screen', () => {
+    expect(detectPlatformRoute('Biznes reja yozib ber')?.screen).toBe('business-plan');
   });
 });
 

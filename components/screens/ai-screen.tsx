@@ -1,11 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Bot, Clock, Send, Sparkles, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { Bot, Clock, Send, Sparkles, ShieldCheck, ArrowLeft, Mic, Square } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import type { AIMessage } from '@/types';
+import { checkScope, VOICE_OFF_TOPIC_REPLY } from '@/lib/ai-copilot/scope-guard';
+import { detectPlatformRoute } from '@/lib/ai-copilot/platform-route';
+import { isSpeechRecognitionSupported, startListening, speak, stopSpeaking } from '@/lib/voice/web-speech';
 import {
   monthlyPayment,
   creditLoadCheck,
@@ -87,7 +90,10 @@ export function AIScreen() {
   >([]);
   const [resolvedActions, setResolvedActions] = useState<Set<string>>(new Set());
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const listenCtl = useRef<{ stop: () => void } | null>(null);
 
   const messages: AIMessage[] = [
     ...chatMessages,
@@ -116,8 +122,16 @@ export function AIScreen() {
   };
 
   useEffect(() => {
+    setSpeechSupported(isSpeechRecognitionSupported());
+    return () => {
+      listenCtl.current?.stop();
+      stopSpeaking();
+    };
+  }, []);
+
+  useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, isTyping]);
+  }, [messages, isTyping, listening]);
 
   const pushLocal = (role: 'user' | 'assistant', content: string, quickReplies?: string[]) => {
     setLocalExtras((prev) => [...prev, { id: generateId(), role, content, quickReplies }]);
@@ -194,7 +208,7 @@ export function AIScreen() {
     await finishCreditFlow(nextAnswers);
   };
 
-  const respondToUser = async (text: string) => {
+  const respondToUser = async (text: string, opts?: { speak?: boolean }) => {
     if (/reja yaratish/i.test(text)) {
       navigate('business-plan');
       return;
@@ -225,8 +239,15 @@ export function AIScreen() {
 
     setIsTyping(true);
     try {
-      await sendCoachMessage(text);
+      const reply = await sendCoachMessage(text);
       setLocalExtras([]);
+      if (opts?.speak && reply) {
+        speak(reply);
+        const route = detectPlatformRoute(text);
+        if (route) {
+          toast({ title: route.label, description: 'Platformada shu bo‘limni ochishingiz mumkin.' });
+        }
+      }
     } catch (e) {
       pushLocal('assistant', e instanceof Error ? e.message : 'AI javob bermadi');
     } finally {
@@ -240,12 +261,20 @@ export function AIScreen() {
       startCreditFlow();
       return;
     }
-    if (reply === 'Reja yaratish') {
+    if (reply === 'Reja yaratish' || reply === 'Biznes reja') {
       navigate('business-plan');
       return;
     }
-    if (reply === 'Tahlilni ko‘rish') {
+    if (reply === 'Tahlilni ko‘rish' || reply === 'Tahlil') {
       navigate('analytics');
+      return;
+    }
+    if (reply === 'Vazifalar') {
+      navigate('tasks');
+      return;
+    }
+    if (reply === 'Obuna') {
+      navigate('subscription');
       return;
     }
     if (inCreditFlow) {
@@ -253,6 +282,48 @@ export function AIScreen() {
       return;
     }
     await respondToUser(reply);
+  };
+
+  const handleVoiceTranscript = async (transcript: string) => {
+    setListening(false);
+    listenCtl.current = null;
+    const scope = checkScope(transcript);
+    if (!scope.allowed) {
+      pushLocal('user', transcript);
+      pushLocal('assistant', VOICE_OFF_TOPIC_REPLY, ['Kredit topish', 'Biznes g‘oyam']);
+      return;
+    }
+    if (inCreditFlow) {
+      await handleFlowReply(transcript);
+      return;
+    }
+    await respondToUser(transcript, { speak: true });
+  };
+
+  const toggleListening = () => {
+    if (listening) {
+      listenCtl.current?.stop();
+      listenCtl.current = null;
+      setListening(false);
+      return;
+    }
+    if (isTyping) return;
+    stopSpeaking();
+    setListening(true);
+    listenCtl.current = startListening({
+      onResult: (t) => {
+        void handleVoiceTranscript(t);
+      },
+      onError: (msg) => {
+        toast({ title: 'Ovoz', description: msg, variant: 'destructive' });
+        setListening(false);
+        listenCtl.current = null;
+      },
+      onEnd: () => {
+        setListening(false);
+        listenCtl.current = null;
+      },
+    });
   };
 
   const handleSend = async () => {
@@ -370,6 +441,15 @@ export function AIScreen() {
             </div>
           ))}
 
+          {listening && (
+            <div className="flex justify-start">
+              <div className="flex items-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 px-3.5 py-2 text-xs font-medium text-primary">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+                Tinglanmoqda... biznes haqida gapiring
+              </div>
+            </div>
+          )}
+
           {isTyping && (
             <div className="flex justify-start">
               <div className="flex gap-2">
@@ -395,14 +475,28 @@ export function AIScreen() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !isTyping && handleSend()}
-              placeholder="Savolingizni yozing..."
-              disabled={isTyping}
+              placeholder={listening ? 'Tinglanmoqda...' : 'Savolingizni yozing...'}
+              disabled={isTyping || listening}
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-60"
             />
           </div>
+          {speechSupported && (
+            <button
+              type="button"
+              onClick={toggleListening}
+              disabled={isTyping}
+              className={cn(
+                'flex h-11 w-11 items-center justify-center rounded-full disabled:opacity-50',
+                listening ? 'bg-destructive text-destructive-foreground' : 'border border-border bg-card text-foreground',
+              )}
+              aria-label={listening ? 'Tinglashni to‘xtatish' : 'Ovozli xabar'}
+            >
+              {listening ? <Square className="h-4 w-4" /> : <Mic className="h-5 w-5" />}
+            </button>
+          )}
           <button
             onClick={handleSend}
-            disabled={!input.trim() || isTyping}
+            disabled={!input.trim() || isTyping || listening}
             className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"
             aria-label="Yuborish"
           >

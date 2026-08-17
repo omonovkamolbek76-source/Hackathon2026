@@ -59,7 +59,7 @@ interface AppStore {
 
   chatMessages: AIMessage[];
   loadChat: () => Promise<void>;
-  sendCoachMessage: (text: string) => Promise<void>;
+  sendCoachMessage: (text: string) => Promise<string>;
   confirmAiAction: (action: NonNullable<AIMessage['action']>) => Promise<{ ok: boolean; result: { type: string } }>;
   resetChat: () => Promise<void>;
   journeyStage: number;
@@ -343,6 +343,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         },
       ]);
       if (data.assistantMessage.stage != null) setJourneyStage(data.assistantMessage.stage);
+      return data.assistantMessage.content;
     },
     [journeyStage, journeyProfile],
   );

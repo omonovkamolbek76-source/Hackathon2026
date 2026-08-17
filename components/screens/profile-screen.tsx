@@ -11,7 +11,6 @@ import {
   Phone,
   MapPin,
   ShieldCheck,
-  Download,
   CreditCard,
   Bell,
   Landmark,
@@ -238,17 +237,6 @@ export function ProfileScreen() {
     } else if (d.payment.checkoutUrl) {
       window.location.href = d.payment.checkoutUrl;
     }
-  };
-
-  const exportData = async () => {
-    const d = await api<Record<string, unknown>>('/api/export');
-    const blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'tadbirkorai-export.json';
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   return (
@@ -526,11 +514,6 @@ export function ProfileScreen() {
             <span className="flex-1 text-left text-sm font-semibold">Biznes rejalari</span>
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </button>
-          <button onClick={exportData} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3.5">
-            <Download className="h-5 w-5 text-primary" />
-            <span className="flex-1 text-left text-sm font-semibold">Ma’lumotlarni eksport</span>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-          </button>
           <button
             onClick={() => (editingProfile ? setEditingProfile(false) : startEditProfile())}
             className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3.5"
@@ -585,7 +568,7 @@ export function ProfileScreen() {
         </button>
 
         <div className="mt-4 text-center text-[10px] text-muted-foreground">
-          MFA · Audit log · CSV bank · Payments · Export · Backup script
+          MFA · Audit log · CSV bank · Payments · Backup script
         </div>
       </div>
     </div>

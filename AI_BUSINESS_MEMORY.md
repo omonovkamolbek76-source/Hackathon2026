@@ -75,12 +75,12 @@ Action ijro etish alohida bosqich: `POST /api/coach/actions` — foydalanuvchi a
 ### 2.5 Priority Engine (45-bo'lim)
 `lib/ai-copilot/priority-engine.ts` — Impact/Urgency/Cost/Risk/Difficulty asosida ballash, `today/this_week/later` guruhlash. Sof funksiya, to'liq testlanadi. `GET /api/tasks/today` — mavjud Tasklarni shu orqali kunlik rejaga aylantiradi.
 
-### 2.6 Ovozli AI (6-8-bo'lim) — **KEYINGI BOSQICH (hozircha implement qilinmadi)**
-Sabab: joriy vazifada **brauzer/vizual test qat'iy taqiqlangan**, ovozli UI (mikrofon ruxsati, tinglash/gapirish holatlari, tarmoq xatolari) faqat interaktiv brauzer orqali ishonchli tekshirilishi mumkin. Arxitektura qarori (keyingi bosqich uchun): brauzerning **Web Speech API** (`SpeechRecognition` + `speechSynthesis`) orqali matn olinadi/o'qiladi — bu alohida "AI provider" emas, faqat kirish/chiqish modaliteti; AI miya sifatida baribir faqat Gemini (`/api/coach`) ishlatiladi:
+### 2.6 Ovozli AI (6-8-bo'lim) — **BAJARILDI**
+Brauzerning **Web Speech API** (`SpeechRecognition` + `speechSynthesis`) — alohida AI provider emas, faqat kirish/chiqish. Miya: `/api/coach` (Gemini). Biznesdan tashqari ovoz `checkScope` orqali rad etiladi (Gemini chaqirilmaydi). Mikrofon `Permissions-Policy: microphone=(self)`.
+
 ```
-USER VOICE → Web Speech API (browser) → matn → /api/coach (Gemini) → matn javob → speechSynthesis → USER
+USER VOICE → Web Speech API (browser) → matn → checkScope → /api/coach (Gemini) → matn javob → speechSynthesis → USER
 ```
-Bu qoidaga mos: "Agar alohida API talab qilinsa, faqat Google/Gemini ekotizimidagi ruxsat etilgan texnologiyalardan foydalan" — Chrome'da Web Speech API Google infratuzilmasiga tayanadi va boshqa uchinchi tomon AI-chat provideri emas.
 
 ### 2.7 Subscription tizimi (20-27, 38-43-bo'lim)
 **Narxlar/xususiyatlar hardcode emas** — `SubscriptionPlan` jadvalida (DB, seed orqali boshlang'ich qiymat, keyin admin API orqali o'zgartiriladi):
@@ -115,7 +115,7 @@ Mavjud `Transaction`, analytics (`/api/analytics`) infratuzilmasi qayta ishlatil
 
 Quyidagilar **ushbu bosqichda ATAYLAB qurilmadi** (sabab: joriy topshiriqda vizual/brauzer test qat'iy man etilgan, yoki alohida katta modul; keyingi so'rovda davom ettiriladi):
 
-1. **Ovozli AI UI** (mikrofon tugmasi, tinglash indikatori) — arxitektura tayyor (2.6-bo'lim), komponent yozilmadi.
+1. ~~**Ovozli AI UI**~~ — **BAJARILDI** (mikrofon tugmasi, Web Speech API, biznesdan tashqari ovoz rad etiladi).
 2. **Admin panel UI** — subscription plan/price/limit boshqarish uchun. Hozircha faqat DB darajasida (`SubscriptionPlan` jadvali) va seed orqali sozlanadi; admin uchun API/UI keyingi bosqich.
 3. **Billing history UI** (invoice ro'yxati, upgrade/downgrade tugmalari to'liq oqimi) — backend qisman tayyor (`/api/subscription`), UI to'liq emas.
 4. **Financial Dashboard** (30-bo'lim vizual paneli), **Forecasting** (31-bo'lim), **Legal assistance moduli** (28-bo'lim), **Tax reserve avtomatik hisoblash** (27-bo'lim) — keyingi bosqich.
