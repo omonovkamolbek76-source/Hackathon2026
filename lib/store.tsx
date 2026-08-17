@@ -41,6 +41,13 @@ interface AppStore {
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
 
+  startOAuth: (provider: 'google' | 'microsoft', opts?: { link?: boolean }) => void;
+  oauthMfaPending: boolean;
+  completeOAuthMfa: (mfaCode: string) => Promise<void>;
+  oauthError: string | null;
+  oauthLinked: string | null;
+  clearOAuthNotice: () => void;
+
   screen: ScreenId;
   navigate: (screen: ScreenId) => void;
   goBack: () => void;
@@ -131,6 +138,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [actionSheetOpen, setActionSheetOpen] = useState(false);
   const [fundAllocations, setFundAllocations] = useState<FundAllocation[]>([]);
+  const [oauthMfaPending, setOauthMfaPending] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
+  const [oauthLinked, setOauthLinked] = useState<string | null>(null);
 
   const navigate = useCallback((s: ScreenId) => {
     setScreen(s);
@@ -209,6 +219,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refreshSession();
   }, [refreshSession]);
+
+  // The app is a client-side SPA (no URL-based screen routing), but the OAuth
+  // callback is a real server redirect and can only communicate outcome via
+  // query params. Pick those up once on load, then scrub them from the URL.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const mfaRequired = params.get('oauthMfaRequired');
+    const err = params.get('authError');
+    const linked = params.get('linked');
+    if (!mfaRequired && !err && !linked) return;
+
+    if (mfaRequired) setOauthMfaPending(true);
+    if (err) setOauthError(err);
+    if (linked) setOauthLinked(linked);
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('oauthMfaRequired');
+    url.searchParams.delete('authError');
+    url.searchParams.delete('linked');
+    window.history.replaceState({}, '', url.pathname + url.search);
+  }, []);
+
+  const startOAuth = useCallback((provider: 'google' | 'microsoft', opts?: { link?: boolean }) => {
+    if (typeof window === 'undefined') return;
+    const query = opts?.link ? '?link=1' : '';
+    window.location.href = `/api/auth/${provider}${query}`;
+  }, []);
+
+  const completeOAuthMfa = useCallback(async (mfaCode: string) => {
+    const data = await api<{ user: AuthUser }>('/api/auth/oauth/mfa', {
+      method: 'POST',
+      body: JSON.stringify({ mfaCode }),
+    });
+    setUser(data.user);
+    setOauthMfaPending(false);
+  }, []);
+
+  const clearOAuthNotice = useCallback(() => {
+    setOauthError(null);
+    setOauthLinked(null);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -389,6 +441,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         register,
         logout,
         refreshSession,
+        startOAuth,
+        oauthMfaPending,
+        completeOAuthMfa,
+        oauthError,
+        oauthLinked,
+        clearOAuthNotice,
         screen,
         navigate,
         goBack,

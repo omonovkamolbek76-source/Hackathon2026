@@ -15,6 +15,8 @@ import {
   CreditCard,
   Bell,
   Landmark,
+  Link2,
+  Unlink,
 } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { api } from '@/lib/client-api';
@@ -32,6 +34,19 @@ export function ProfileScreen() {
   const [showDisableForm, setShowDisableForm] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ name: '', phone: '', businessName: '', region: '' });
+  const [oauthStatus, setOauthStatus] = useState<{
+    hasPassword: boolean;
+    accounts: { provider: string; email: string }[];
+    googleAvailable: boolean;
+    microsoftAvailable: boolean;
+  } | null>(null);
+  const [oauthBusy, setOauthBusy] = useState<string | null>(null);
+
+  const loadOAuthStatus = () => {
+    api<typeof oauthStatus>('/api/auth/oauth')
+      .then((d) => setOauthStatus(d))
+      .catch(() => undefined);
+  };
 
   useEffect(() => {
     api<{ enabled: boolean }>('/api/mfa')
@@ -40,6 +55,8 @@ export function ProfileScreen() {
     api<{ notifications: { id: string; title: string; body: string; read: boolean }[] }>('/api/notifications')
       .then((d) => setNotifications(d.notifications))
       .catch(() => undefined);
+    loadOAuthStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!user) return null;
@@ -57,6 +74,25 @@ export function ProfileScreen() {
       toast({ title: 'MFA o‘chirildi' });
     } catch (e) {
       toast({ title: 'Xato', description: e instanceof Error ? e.message : 'Kod noto‘g‘ri', variant: 'destructive' });
+    }
+  };
+
+  const linkProvider = (provider: 'google' | 'microsoft') => {
+    if (oauthBusy) return;
+    setOauthBusy(provider);
+    window.location.href = `/api/auth/${provider}?link=1&redirect=/`;
+  };
+
+  const unlinkProvider = async (provider: 'google' | 'microsoft') => {
+    setOauthBusy(provider);
+    try {
+      await api('/api/auth/oauth', { method: 'DELETE', body: JSON.stringify({ provider }) });
+      loadOAuthStatus();
+      toast({ title: provider === 'google' ? 'Google uzildi' : 'Microsoft uzildi' });
+    } catch (e) {
+      toast({ title: 'Xato', description: e instanceof Error ? e.message : 'Uzib bo\u2018lmadi', variant: 'destructive' });
+    } finally {
+      setOauthBusy(null);
     }
   };
 
@@ -169,8 +205,56 @@ export function ProfileScreen() {
           </div>
         </div>
 
+        {/* Linked accounts */}
+        {oauthStatus && (oauthStatus.googleAvailable || oauthStatus.microsoftAvailable || oauthStatus.accounts.length > 0) && (
+          <div className="mt-4 rounded-2xl border border-border bg-card p-4">
+            <div className="mb-2 flex items-center gap-2 text-sm font-bold">
+              <Link2 className="h-4 w-4 text-primary" />
+              Ulangan hisoblar
+            </div>
+            <div className="space-y-2">
+              {(['google', 'microsoft'] as const).map((provider) => {
+                const available = provider === 'google' ? oauthStatus.googleAvailable : oauthStatus.microsoftAvailable;
+                if (!available) return null;
+                const linked = oauthStatus.accounts.find((a) => a.provider === provider);
+                const label = provider === 'google' ? 'Google' : 'Microsoft';
+                return (
+                  <div key={provider} className="flex items-center justify-between rounded-xl bg-accent p-2.5">
+                    <div className="text-xs">
+                      <div className="font-semibold">{label}</div>
+                      <div className="text-muted-foreground">{linked ? linked.email || 'Ulangan' : 'Ulanmagan'}</div>
+                    </div>
+                    {linked ? (
+                      <button
+                        onClick={() => unlinkProvider(provider)}
+                        disabled={oauthBusy === provider}
+                        className="flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold disabled:opacity-60"
+                      >
+                        <Unlink className="h-3.5 w-3.5" />
+                        Uzish
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => linkProvider(provider)}
+                        disabled={oauthBusy === provider}
+                        className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1.5 text-[11px] font-bold text-primary-foreground disabled:opacity-60"
+                      >
+                        <Link2 className="h-3.5 w-3.5" />
+                        Ulash
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              {!oauthStatus.hasPassword && (
+                <p className="text-[11px] text-muted-foreground">Parolingiz yo\u2018q — faqat ulangan provayder(lar) orqali kirasiz.</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* MFA */}
-        <div className="mt-5 rounded-2xl border border-border bg-card p-4">
+        <div className="mt-4 rounded-2xl border border-border bg-card p-4">
           <div className="mb-2 flex items-center gap-2 text-sm font-bold">
             <ShieldCheck className="h-4 w-4 text-primary" />
             Xavfsizlik / MFA {mfaEnabled ? '· yoqilgan' : '· o‘chiq'}
