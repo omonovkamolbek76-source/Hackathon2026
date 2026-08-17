@@ -257,3 +257,43 @@ describe('OAuth authorization URL construction', () => {
     expect(url.searchParams.get('redirect_uri')).toBe('https://app.example/api/auth/google/callback');
   });
 });
+
+describe('OAuth app URL + provider availability', () => {
+  it('uses a non-local APP_URL even when the request origin differs', async () => {
+    const prev = process.env.APP_URL;
+    process.env.APP_URL = 'https://tadbirkor.example';
+    const { resolveAppUrl } = await import('@/lib/oauth/redirect');
+    const url = resolveAppUrl(new Request('http://127.0.0.1:3000/api/auth/google'));
+    expect(url).toBe('https://tadbirkor.example');
+    process.env.APP_URL = prev;
+  });
+
+  it('falls back to the request origin when APP_URL is still localhost', async () => {
+    const prev = process.env.APP_URL;
+    process.env.APP_URL = 'http://localhost:3000';
+    const { resolveAppUrl } = await import('@/lib/oauth/redirect');
+    const url = resolveAppUrl(new Request('https://preview.example/api/auth/google'));
+    expect(url).toBe('https://preview.example');
+    process.env.APP_URL = prev;
+  });
+
+  it('treats blank OAuth client env as not configured', async () => {
+    const gid = process.env.GOOGLE_CLIENT_ID;
+    const gsec = process.env.GOOGLE_CLIENT_SECRET;
+    process.env.GOOGLE_CLIENT_ID = '   ';
+    process.env.GOOGLE_CLIENT_SECRET = '';
+    const { isProviderConfigured } = await import('@/lib/oauth/providers');
+    expect(isProviderConfigured('google')).toBe(false);
+    process.env.GOOGLE_CLIENT_ID = gid;
+    process.env.GOOGLE_CLIENT_SECRET = gsec;
+  });
+});
+
+describe('OIDC email extraction', () => {
+  it('prefers email and falls back to preferred_username when it looks like an email', async () => {
+    const { emailFromOidcPayload } = await import('@/lib/oauth/providers');
+    expect(emailFromOidcPayload({ email: 'A@B.com' })).toBe('a@b.com');
+    expect(emailFromOidcPayload({ preferred_username: 'user@outlook.com' })).toBe('user@outlook.com');
+    expect(emailFromOidcPayload({ preferred_username: 'live.com#user' })).toBeUndefined();
+  });
+});

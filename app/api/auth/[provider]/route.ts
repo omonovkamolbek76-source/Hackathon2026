@@ -5,7 +5,7 @@ import { isProviderConfigured, buildAuthorizationUrl } from '@/lib/oauth/provide
 import type { OAuthProviderId } from '@/lib/oauth/handshake';
 import { generateCodeVerifier, codeChallengeFromVerifier, generateState, generateNonce } from '@/lib/oauth/pkce';
 import { signHandshake, handshakeCookieName, OAUTH_HANDSHAKE_TTL_SECONDS } from '@/lib/oauth/handshake';
-import { sanitizeRedirectPath } from '@/lib/oauth/redirect';
+import { sanitizeRedirectPath, resolveAppUrl } from '@/lib/oauth/redirect';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 
 function isValidProvider(p: string): p is OAuthProviderId {
@@ -44,7 +44,7 @@ function redirectWithError(appUrl: string, redirectPath: string, code: string) {
 export async function GET(request: Request, { params }: { params: { provider: string } }) {
   const provider = params.provider;
   const url = new URL(request.url);
-  const appUrl = process.env.APP_URL || url.origin;
+  const appUrl = resolveAppUrl(request);
   const redirectPath = sanitizeRedirectPath(url.searchParams.get('redirect'));
 
   if (!isValidProvider(provider)) {

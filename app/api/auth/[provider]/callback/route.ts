@@ -14,6 +14,7 @@ import { resolveOAuthAccount } from '@/lib/oauth/account-resolution';
 import { writeAudit } from '@/lib/audit';
 import { logger } from '@/lib/logger';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
+import { resolveAppUrl } from '@/lib/oauth/redirect';
 
 function isValidProvider(p: string): p is OAuthProviderId {
   return p === 'google' || p === 'microsoft';
@@ -48,7 +49,7 @@ function clearHandshakeCookie(provider: string) {
  */
 export async function GET(request: Request, { params }: { params: { provider: string } }) {
   const provider = params.provider;
-  const appUrl = process.env.APP_URL || new URL(request.url).origin;
+  const appUrl = resolveAppUrl(request);
 
   if (!isValidProvider(provider) || !isProviderConfigured(provider)) {
     return redirectToApp(appUrl, '/', { authError: 'provider_unavailable' });

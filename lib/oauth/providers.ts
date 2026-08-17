@@ -40,8 +40,10 @@ function requireEnv(name: string): string {
 }
 
 export function isProviderConfigured(id: OAuthProviderId): boolean {
-  if (id === 'google') return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
-  return Boolean(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET);
+  if (id === 'google') {
+    return Boolean(process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim());
+  }
+  return Boolean(process.env.MICROSOFT_CLIENT_ID?.trim() && process.env.MICROSOFT_CLIENT_SECRET?.trim());
 }
 
 export function getProviderConfig(id: OAuthProviderId): ProviderConfig {
@@ -139,6 +141,16 @@ export async function exchangeCodeForTokens(
   return { idToken: data.id_token };
 }
 
+export function emailFromOidcPayload(payload: Record<string, unknown> | { email?: unknown; preferred_username?: unknown }): string | undefined {
+  const raw =
+    typeof payload.email === 'string'
+      ? payload.email
+      : typeof payload.preferred_username === 'string' && payload.preferred_username.includes('@')
+        ? payload.preferred_username
+        : undefined;
+  return raw ? raw.toLowerCase() : undefined;
+}
+
 export async function verifyIdToken(provider: OAuthProviderId, idToken: string, expectedNonce: string): Promise<OidcClaims> {
   const cfg = getProviderConfig(provider);
   const jwks = getJwks(cfg.jwksUri);
@@ -156,7 +168,7 @@ export async function verifyIdToken(provider: OAuthProviderId, idToken: string, 
     throw new Error('oauth_missing_sub');
   }
 
-  const email = typeof payload.email === 'string' ? payload.email.toLowerCase() : undefined;
+  const email = emailFromOidcPayload(payload as Record<string, unknown>);
   const explicitEmailVerified =
     typeof payload.email_verified === 'boolean'
       ? payload.email_verified
