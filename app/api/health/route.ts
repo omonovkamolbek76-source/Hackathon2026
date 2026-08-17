@@ -33,22 +33,11 @@ export async function GET() {
     logger.debug('health_ok', { latencyMs: payload.latencyMs });
     return jsonOk(payload);
   } catch (e) {
-    const rawMessage = e instanceof Error ? e.message : String(e);
-    // Redact anything that looks like a connection string/credential before
-    // it ever leaves the server — this diagnostic is temporary and must
-    // never echo a secret back over HTTP.
-    const safeMessage = rawMessage
-      .replace(/postgres(?:ql)?:\/\/[^\s"']+/gi, '[redacted-connection-string]')
-      .slice(0, 500);
-    logger.error('health_db_down', { error: rawMessage });
+    logger.error('health_db_down', { error: e instanceof Error ? e.message : 'unknown' });
     return jsonError('Database unavailable', 503, {
       ok: false,
       database: 'down',
       time: new Date().toISOString(),
-      // TEMPORARY diagnostic field — remove once the Netlify Postgres
-      // connectivity issue is root-caused.
-      debugErrorName: e instanceof Error ? e.constructor.name : typeof e,
-      debugErrorMessage: safeMessage,
     });
   }
 }
