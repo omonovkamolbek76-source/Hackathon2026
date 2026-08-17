@@ -5,6 +5,11 @@ const nextConfig = {
   },
   images: { unoptimized: true },
   poweredByHeader: false,
+  // Enables instrumentation.ts (Next.js 13) — used only to start the
+  // Telegram notification checker interval on server boot.
+  experimental: {
+    instrumentationHook: true,
+  },
   async headers() {
     return [
       {

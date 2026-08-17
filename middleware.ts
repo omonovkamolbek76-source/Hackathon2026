@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_API = new Set(['/api/auth/login', '/api/auth/register', '/api/health', '/api/payments/webhook']);
+const PUBLIC_API = new Set([
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/health',
+  '/api/payments/webhook',
+  '/api/telegram/webhook',
+  '/api/telegram/check',
+]);
 
 export function middleware(request: NextRequest) {
   const response = NextResponse.next();

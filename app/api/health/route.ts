@@ -3,10 +3,13 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { isProviderConfigured } from '@/lib/oauth/providers';
 import { isGeminiConfigured, getGeminiModel } from '@/lib/gemini/client';
+import { isTelegramConfigured } from '@/lib/telegram/client';
+import { ensureTelegramSchedulerStarted } from '@/lib/telegram/scheduler';
 
 export async function GET() {
   const started = Date.now();
   try {
+    ensureTelegramSchedulerStarted();
     await prisma.$queryRaw`SELECT 1`;
     const credits = await prisma.creditProduct.count();
     const payload = {
@@ -23,6 +26,7 @@ export async function GET() {
       sentryConfigured: Boolean(process.env.SENTRY_DSN),
       googleOAuthConfigured: isProviderConfigured('google'),
       microsoftOAuthConfigured: isProviderConfigured('microsoft'),
+      telegramConfigured: isTelegramConfigured(),
       mfaAvailable: true,
       backupDir: process.env.BACKUP_DIR || './backups',
     };
