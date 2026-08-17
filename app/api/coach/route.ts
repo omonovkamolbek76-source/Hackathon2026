@@ -5,6 +5,9 @@ import { runCoach } from '@/lib/coach-server';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { jsonError, jsonOk } from '@/lib/api';
 import { welcomeReply, JOURNEY_STAGES } from '@/lib/journey';
+import { EntitlementError, consumeAiQuota, requireAiQuota } from '@/lib/entitlements';
+import { buildCopilotContext } from '@/lib/ai-copilot/context-builder';
+import { writeAudit } from '@/lib/audit';
 
 export async function GET() {
   try {
@@ -91,6 +94,9 @@ export async function POST(request: Request) {
     const rl = rateLimit(clientKey(request, `coach:${user.id}`), 30, 60_000);
     if (!rl.ok) return jsonError('Juda ko‘p so‘rov', 429);
 
+    // Backend-enforced subscription quota (never trust a frontend-only limit).
+    await requireAiQuota(user.id);
+
     const body = await request.json();
     const parsed = postSchema.safeParse(body);
     if (!parsed.success) return jsonError('Validatsiya xatosi', 400);
@@ -103,10 +109,12 @@ export async function POST(request: Request) {
       },
     });
 
+    const context = await buildCopilotContext(user.id);
     const reply = await runCoach({
       message: parsed.data.message,
       stage: parsed.data.stage ?? 0,
       profile: parsed.data.profile,
+      context,
     });
 
     const assistant = await prisma.chatMessage.create({
@@ -119,6 +127,10 @@ export async function POST(request: Request) {
         quickReplies: reply.quickReplies ? JSON.stringify(reply.quickReplies) : null,
       },
     });
+
+    await consumeAiQuota(user.id);
+    // Metadata only — never the message content or any financial value (least-data / privacy).
+    await writeAudit({ userId: user.id, action: 'ai.request', meta: { provider: reply.provider, hasAction: Boolean(reply.action) } });
 
     return jsonOk({
       userMessage: {
@@ -136,10 +148,12 @@ export async function POST(request: Request) {
         quickReplies: reply.quickReplies,
         timestamp: assistant.createdAt.getTime(),
       },
+      action: reply.action,
       provider: reply.provider,
     });
   } catch (e) {
     if (e instanceof AuthError) return jsonError(e.message, e.status);
+    if (e instanceof EntitlementError) return jsonError(e.message, e.status);
     return jsonError('Server xatosi', 500);
   }
 }
