@@ -1,6 +1,9 @@
 /**
  * Browser Web Speech API wrapper — input/output modality only.
  * The AI brain remains /api/coach (Gemini). Not a third-party chatbot.
+ *
+ * Recording is push-to-talk until the user STOPS the mic. Transcript is
+ * accumulated and handed to the caller; this module never sends a message.
  */
 
 type RecognitionInstance = {
@@ -37,7 +40,7 @@ export function isSpeechSynthesisSupported(): boolean {
 }
 
 export function startListening(handlers: {
-  onResult: (transcript: string) => void;
+  onTranscript: (fullText: string) => void;
   onError: (message: string) => void;
   onEnd: () => void;
 }): { stop: () => void } {
@@ -50,29 +53,42 @@ export function startListening(handlers: {
 
   const rec = new Ctor();
   rec.lang = 'uz-UZ';
-  rec.interimResults = false;
-  rec.continuous = false;
+  rec.interimResults = true;
+  rec.continuous = true;
   let stopped = false;
+  const finals: string[] = [];
 
   rec.onresult = (ev) => {
-    let text = '';
+    let interim = '';
     for (let i = ev.resultIndex; i < ev.results.length; i++) {
       const row = ev.results[i];
-      if (row?.isFinal) text += row[0]?.transcript || '';
+      const piece = (row[0]?.transcript || '').trim();
+      if (!piece) continue;
+      if (row.isFinal) finals.push(piece);
+      else interim += (interim ? ' ' : '') + piece;
     }
-    const transcript = text.trim();
-    if (transcript) handlers.onResult(transcript);
+    const full = [...finals, interim].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+    if (full) handlers.onTranscript(full);
   };
   rec.onerror = (ev) => {
-    if (ev.error === 'no-speech') handlers.onError('Ovoz eshitilmadi. Yana urinib ko‘ring.');
-    else if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
+    if (ev.error === 'no-speech') return; // silence while still holding the mic — keep listening
+    if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
       handlers.onError('Mikrofon ruxsati berilmadi. Brauzer sozlamasidan ruxsat bering.');
     } else if (ev.error !== 'aborted') {
-      handlers.onError('Ovozni tushunib bo‘lmadi.');
+      handlers.onError('Ovozni tushunib bo‘lmadi. Yana urinib ko‘ring.');
     }
   };
   rec.onend = () => {
-    if (!stopped) handlers.onEnd();
+    if (stopped) {
+      handlers.onEnd();
+      return;
+    }
+    // Chrome ends the session after a pause; restart until the user taps stop.
+    try {
+      rec.start();
+    } catch {
+      handlers.onEnd();
+    }
   };
 
   try {
@@ -90,7 +106,6 @@ export function startListening(handlers: {
       } catch {
         /* already stopped */
       }
-      handlers.onEnd();
     },
   };
 }
@@ -98,7 +113,7 @@ export function startListening(handlers: {
 export function speak(text: string): void {
   if (!isSpeechSynthesisSupported() || !text.trim()) return;
   window.speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(text.slice(0, 600));
+  const utter = new SpeechSynthesisUtterance(text.slice(0, 2000));
   utter.lang = 'uz-UZ';
   utter.rate = 1;
   window.speechSynthesis.speak(utter);

@@ -6,7 +6,6 @@ import { useApp } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import type { AIMessage } from '@/types';
-import { checkScope, VOICE_OFF_TOPIC_REPLY } from '@/lib/ai-copilot/scope-guard';
 import { detectPlatformRoute } from '@/lib/ai-copilot/platform-route';
 import { isSpeechRecognitionSupported, startListening, speak, stopSpeaking } from '@/lib/voice/web-speech';
 import {
@@ -94,6 +93,7 @@ export function AIScreen() {
   const [speechSupported, setSpeechSupported] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const listenCtl = useRef<{ stop: () => void } | null>(null);
+  const fromVoiceRef = useRef(false);
 
   const messages: AIMessage[] = [
     ...chatMessages,
@@ -284,22 +284,6 @@ export function AIScreen() {
     await respondToUser(reply);
   };
 
-  const handleVoiceTranscript = async (transcript: string) => {
-    setListening(false);
-    listenCtl.current = null;
-    const scope = checkScope(transcript);
-    if (!scope.allowed) {
-      pushLocal('user', transcript);
-      pushLocal('assistant', VOICE_OFF_TOPIC_REPLY, ['Kredit topish', 'Biznes g‘oyam']);
-      return;
-    }
-    if (inCreditFlow) {
-      await handleFlowReply(transcript);
-      return;
-    }
-    await respondToUser(transcript, { speak: true });
-  };
-
   const toggleListening = () => {
     if (listening) {
       listenCtl.current?.stop();
@@ -311,8 +295,9 @@ export function AIScreen() {
     stopSpeaking();
     setListening(true);
     listenCtl.current = startListening({
-      onResult: (t) => {
-        void handleVoiceTranscript(t);
+      onTranscript: (t) => {
+        fromVoiceRef.current = true;
+        setInput(t);
       },
       onError: (msg) => {
         toast({ title: 'Ovoz', description: msg, variant: 'destructive' });
@@ -327,14 +312,16 @@ export function AIScreen() {
   };
 
   const handleSend = async () => {
-    if (!input.trim() || isTyping) return;
+    if (!input.trim() || isTyping || listening) return;
     const text = input.trim();
+    const speakReply = fromVoiceRef.current;
+    fromVoiceRef.current = false;
     setInput('');
     if (inCreditFlow) {
       await handleFlowReply(text);
       return;
     }
-    await respondToUser(text);
+    await respondToUser(text, { speak: speakReply });
   };
 
   return (
@@ -445,7 +432,7 @@ export function AIScreen() {
             <div className="flex justify-start">
               <div className="flex items-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 px-3.5 py-2 text-xs font-medium text-primary">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-                Tinglanmoqda... biznes haqida gapiring
+                Yozilmoqda... tugatgach mikrofonni bosing, keyin Yuborish
               </div>
             </div>
           )}
@@ -473,7 +460,10 @@ export function AIScreen() {
             <input
               type="text"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                fromVoiceRef.current = false;
+                setInput(e.target.value);
+              }}
               onKeyDown={(e) => e.key === 'Enter' && !isTyping && handleSend()}
               placeholder={listening ? 'Tinglanmoqda...' : 'Savolingizni yozing...'}
               disabled={isTyping || listening}

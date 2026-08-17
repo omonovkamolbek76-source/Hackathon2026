@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { checkScope, OFF_TOPIC_REPLY, INJECTION_REFUSAL_REPLY } from '@/lib/ai-copilot/scope-guard';
 import { detectPlatformRoute } from '@/lib/ai-copilot/platform-route';
+import { runCoach } from '@/lib/coach-server';
 import { detectBusinessStage } from '@/lib/ai-copilot/business-stage';
 import { scoreItem, prioritize, taskToPriorityInput } from '@/lib/ai-copilot/priority-engine';
 import { tryParseProposedAction, proposedActionSchema } from '@/lib/ai-copilot/actions';
@@ -91,6 +92,25 @@ describe('platform route hints from business utterances', () => {
 
   it('points business-plan speech to the plan screen', () => {
     expect(detectPlatformRoute('Biznes reja yozib ber')?.screen).toBe('business-plan');
+  });
+});
+
+describe('full local market advice (when Gemini is off)', () => {
+  it('allows brick/market buying questions through the scope guard', () => {
+    expect(checkScope("G'isht olmoqchiman bozordan")).toEqual({ allowed: true });
+    expect(checkScope('Bozor statistikasi kerak')).toEqual({ allowed: true });
+  });
+
+  it('returns a full consulting reply, not a one-line journey prompt', async () => {
+    const r = await runCoach({
+      message: "G'isht olmoqchiman bozordan, statistika ham kerak",
+      stage: 0,
+      allowGemini: false,
+    });
+    expect(r.message.length).toBeGreaterThan(250);
+    expect(r.message).toMatch(/Statistika/i);
+    expect(r.message).toMatch(/yetkazib|Tahlil|narx/i);
+    expect(r.provider).toBe('local');
   });
 });
 
