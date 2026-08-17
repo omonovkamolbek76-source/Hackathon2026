@@ -92,7 +92,7 @@ const subscriptionPlans = [
     name: 'Free',
     priceCents: 0,
     sortOrder: 0,
-    aiMessagesPerDay: 10,
+    aiMessagesPerDay: 50,
     voiceMinutesPerDay: 0,
     financialAnalysis: false,
     prioritySupport: false,

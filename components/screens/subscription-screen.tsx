@@ -102,7 +102,7 @@ export function SubscriptionScreen() {
                 <h2 className="text-base font-bold">Joriy reja: {status?.plan?.name || 'Free'}</h2>
               </div>
               <p className="mt-1 text-xs text-primary-foreground/80">
-                Bugungi AI xabarlar: {status?.usage.messagesToday ?? 0} / {status?.plan?.aiMessagesPerDay ?? 10}
+                Bugungi AI xabarlar: {status?.usage.messagesToday ?? 0} / {status?.plan?.aiMessagesPerDay ?? 50}
               </p>
               {status?.subscription?.cancelAtPeriodEnd && (
                 <p className="mt-1 text-xs text-primary-foreground/80">

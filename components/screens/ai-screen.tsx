@@ -235,6 +235,7 @@ export function AIScreen() {
   };
 
   const handleQuickReply = async (reply: string) => {
+    if (isTyping) return;
     if (reply === 'Kredit topish') {
       startCreditFlow();
       return;
@@ -255,7 +256,7 @@ export function AIScreen() {
   };
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isTyping) return;
     const text = input.trim();
     setInput('');
     if (inCreditFlow) {
@@ -323,7 +324,8 @@ export function AIScreen() {
                         <button
                           key={reply}
                           onClick={() => handleQuickReply(reply)}
-                          className="rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
+                          disabled={isTyping}
+                          className="rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95 disabled:opacity-50"
                         >
                           {reply}
                         </button>
@@ -392,14 +394,15 @@ export function AIScreen() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              onKeyDown={(e) => e.key === 'Enter' && !isTyping && handleSend()}
               placeholder="Savolingizni yozing..."
-              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+              disabled={isTyping}
+              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-60"
             />
           </div>
           <button
             onClick={handleSend}
-            disabled={!input.trim()}
+            disabled={!input.trim() || isTyping}
             className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"
             aria-label="Yuborish"
           >

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { AuthError, requireUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { runCoach } from '@/lib/coach-server';
-import { clientKey, rateLimit } from '@/lib/rate-limit';
+import { clientKey, coachRequestLimit, rateLimit } from '@/lib/rate-limit';
 import { jsonError, jsonOk } from '@/lib/api';
 import { welcomeReply, JOURNEY_STAGES } from '@/lib/journey';
 import { EntitlementError, consumeAiQuota, requireAiQuota } from '@/lib/entitlements';
@@ -91,11 +91,28 @@ const postSchema = z.object({
 export async function POST(request: Request) {
   try {
     const user = await requireUser();
-    const rl = rateLimit(clientKey(request, `coach:${user.id}`), 30, 60_000);
-    if (!rl.ok) return jsonError('Juda ko‘p so‘rov', 429);
+    const rl = rateLimit(clientKey(request, `coach:${user.id}`), coachRequestLimit(), 60_000);
+    if (!rl.ok) {
+      return jsonError(
+        `Juda ko‘p so‘rov. ${rl.retryAfterSec} soniyadan keyin qayta urinib ko‘ring.`,
+        429,
+        { retryAfterSec: rl.retryAfterSec },
+      );
+    }
 
-    // Backend-enforced subscription quota (never trust a frontend-only limit).
-    await requireAiQuota(user.id);
+    // Daily Gemini quota is backend-enforced, but a silent 429 made the chat
+    // look broken. When the quota is exhausted we still answer with the local
+    // (non-Gemini) coach so the user always gets a reply.
+    let allowGemini = true;
+    try {
+      await requireAiQuota(user.id);
+    } catch (e) {
+      if (e instanceof EntitlementError && e.status === 429) {
+        allowGemini = false;
+      } else {
+        throw e;
+      }
+    }
 
     const body = await request.json();
     const parsed = postSchema.safeParse(body);
@@ -115,6 +132,7 @@ export async function POST(request: Request) {
       stage: parsed.data.stage ?? 0,
       profile: parsed.data.profile,
       context,
+      allowGemini,
     });
 
     const assistant = await prisma.chatMessage.create({
@@ -128,7 +146,9 @@ export async function POST(request: Request) {
       },
     });
 
-    await consumeAiQuota(user.id);
+    if (reply.provider === 'gemini') {
+      await consumeAiQuota(user.id);
+    }
     // Metadata only — never the message content or any financial value (least-data / privacy).
     await writeAudit({ userId: user.id, action: 'ai.request', meta: { provider: reply.provider, hasAction: Boolean(reply.action) } });
 

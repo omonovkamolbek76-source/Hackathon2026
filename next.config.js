@@ -13,7 +13,10 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: '/(.*)',
+        // Never attach nosniff to /_next/static — if Next.js (especially in
+        // dev HMR) briefly serves an HTML fallback for a CSS chunk, nosniff
+        // makes the browser refuse the stylesheet ("MIME type text/html").
+        source: '/((?!_next/static|_next/image).*)',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },

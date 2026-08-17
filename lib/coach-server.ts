@@ -32,6 +32,8 @@ export type CoachRequest = {
   stage: number;
   profile?: Record<string, string>;
   context?: CopilotContext;
+  /** When false, skip Gemini and use the local coach (e.g. daily quota exhausted). */
+  allowGemini?: boolean;
 };
 
 export type CoachResponse = {
@@ -86,7 +88,7 @@ export async function runCoach(req: CoachRequest): Promise<CoachResponse> {
     };
   }
 
-  if (isGeminiConfigured()) {
+  if (req.allowGemini !== false && isGeminiConfigured()) {
     try {
       const contextBlock = req.context ? contextToPromptBlock(req.context) : '';
       const userText = [

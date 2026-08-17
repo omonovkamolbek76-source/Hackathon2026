@@ -31,3 +31,9 @@ export function clientKey(request: Request, suffix: string) {
   const ip = fwd?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'local';
   return `${ip}:${suffix}`;
 }
+
+/** Coach chat is interactive — a tight 30/min cap makes the UI look "broken"
+ * during a demo. Production stays bounded; local/dev is much looser. */
+export function coachRequestLimit(): number {
+  return process.env.NODE_ENV === 'production' ? 60 : 200;
+}
