@@ -37,6 +37,9 @@ model User {
   payments        Payment[]
   bankConnections BankConnection[]
   oauthAccounts   OAuthAccount[]
+  businessProfile BusinessProfile?
+  subscriptions   Subscription[]
+  aiUsageDaily    AiUsageDaily[]
 }
 
 // One row per linked external identity provider account. `provider` +
@@ -213,6 +216,88 @@ model Payment {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, status])
+}
+
+// Per-user business context. Only aggregated/summarized fields from this
+// model are ever sent to Gemini (least-data principle) — see
+// lib/ai-copilot/context-builder.ts. Array-valued fields are stored as JSON
+// strings (consistent with ChatMessage.quickReplies elsewhere in this schema).
+model BusinessProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  businessName      String   @default("")
+  idea              String   @default("")
+  industry          String   @default("")
+  location          String   @default("")
+  targetCustomer    String   @default("")
+  product           String   @default("")
+  service           String   @default("")
+  budget            Int      @default(0)
+  suppliers         String   @default("[]")
+  salesChannels     String   @default("[]")
+  marketingChannels String   @default("[]")
+  stage             String   @default("IDEA") // IDEA | VALIDATION | STARTING | EARLY_SALES | GROWING | ESTABLISHED
+  goals             String   @default("[]")
+  challenges        String   @default("[]")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Subscription tiers — prices/features/limits are DATA, never hardcoded in
+// route/component code. Seeded with starter values (prisma/seed.ts); meant to
+// be adjusted later through an admin-only API without a code deploy.
+model SubscriptionPlan {
+  id                 String   @id @default(cuid())
+  key                String   @unique // FREE | BUSINESS | BUSINESS_PRO | FINANCIAL | FINANCIAL_PRO
+  name               String
+  priceCents         Int      @default(0) // smallest currency unit (e.g. USD cents)
+  currency           String   @default("USD")
+  interval           String   @default("month")
+  features           String   @default("[]") // JSON array of display strings
+  aiMessagesPerDay   Int      @default(10)
+  voiceMinutesPerDay Int      @default(0)
+  financialAnalysis  Boolean  @default(false)
+  prioritySupport    Boolean  @default(false)
+  active             Boolean  @default(true)
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                 String   @id @default(cuid())
+  userId             String
+  planId             String
+  status             String   @default("active") // active | trialing | past_due | cancelled | expired
+  provider           String   @default("local") // local | stripe
+  providerRef        String   @default("") // Payment.id or Stripe subscription id
+  currentPeriodStart DateTime @default(now())
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan               SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@index([userId, status])
+}
+
+// Daily AI usage counters — backend-enforced quota per plan (never a
+// frontend-only limit). One row per user per calendar day (UTC date string).
+model AiUsageDaily {
+  id           String   @id @default(cuid())
+  userId       String
+  day          String // YYYY-MM-DD (UTC)
+  messages     Int      @default(0)
+  voiceSeconds Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
 }
 
 model BankConnection {
