@@ -17,6 +17,7 @@ import {
   Landmark,
   Link2,
   Unlink,
+  Send,
 } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { api } from '@/lib/client-api';
@@ -42,9 +43,30 @@ export function ProfileScreen() {
   } | null>(null);
   const [oauthBusy, setOauthBusy] = useState<string | null>(null);
 
+  type TelegramStatus = {
+    available: boolean;
+    connected: boolean;
+    settings: {
+      telegramEnabled: boolean;
+      taskNotifications: boolean;
+      financialNotifications: boolean;
+      businessNotifications: boolean;
+      subscriptionNotifications: boolean;
+    };
+  };
+  const [telegramStatus, setTelegramStatus] = useState<TelegramStatus | null>(null);
+  const [telegramDeepLink, setTelegramDeepLink] = useState<string | null>(null);
+  const [telegramBusy, setTelegramBusy] = useState(false);
+
   const loadOAuthStatus = () => {
     api<typeof oauthStatus>('/api/auth/oauth')
       .then((d) => setOauthStatus(d))
+      .catch(() => undefined);
+  };
+
+  const loadTelegramStatus = () => {
+    api<TelegramStatus>('/api/telegram/status')
+      .then((d) => setTelegramStatus(d))
       .catch(() => undefined);
   };
 
@@ -56,8 +78,33 @@ export function ProfileScreen() {
       .then((d) => setNotifications(d.notifications))
       .catch(() => undefined);
     loadOAuthStatus();
+    loadTelegramStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // While a Telegram deep link is pending, poll status so the UI reflects
+  // linking completion (done from the Telegram app, not this page) without
+  // requiring a manual refresh.
+  useEffect(() => {
+    if (!telegramDeepLink) return undefined;
+    const interval = setInterval(() => {
+      api<TelegramStatus>('/api/telegram/status')
+        .then((d) => {
+          setTelegramStatus(d);
+          if (d.connected) {
+            setTelegramDeepLink(null);
+            toast({ title: 'Telegram ulandi', description: 'Endi bildirishnomalarni Telegram orqali olasiz.' });
+          }
+        })
+        .catch(() => undefined);
+    }, 3000);
+    const timeout = setTimeout(() => setTelegramDeepLink(null), 120_000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [telegramDeepLink]);
 
   if (!user) return null;
 
@@ -93,6 +140,48 @@ export function ProfileScreen() {
       toast({ title: 'Xato', description: e instanceof Error ? e.message : 'Uzib bo\u2018lmadi', variant: 'destructive' });
     } finally {
       setOauthBusy(null);
+    }
+  };
+
+  const connectTelegram = async () => {
+    setTelegramBusy(true);
+    try {
+      const d = await api<{ deepLink: string | null; token: string }>('/api/telegram/link', { method: 'POST' });
+      if (d.deepLink) {
+        setTelegramDeepLink(d.deepLink);
+        window.open(d.deepLink, '_blank', 'noopener,noreferrer');
+      } else {
+        toast({ title: 'Xato', description: 'Bot username sozlanmagan', variant: 'destructive' });
+      }
+    } catch (e) {
+      toast({ title: 'Xato', description: e instanceof Error ? e.message : 'Ulab bo\u2018lmadi', variant: 'destructive' });
+    } finally {
+      setTelegramBusy(false);
+    }
+  };
+
+  const disconnectTelegram = async () => {
+    setTelegramBusy(true);
+    try {
+      await api('/api/telegram/connection', { method: 'DELETE' });
+      loadTelegramStatus();
+      toast({ title: 'Telegram uzildi' });
+    } catch (e) {
+      toast({ title: 'Xato', description: e instanceof Error ? e.message : 'Uzib bo\u2018lmadi', variant: 'destructive' });
+    } finally {
+      setTelegramBusy(false);
+    }
+  };
+
+  const toggleTelegramSetting = async (key: keyof TelegramStatus['settings']) => {
+    if (!telegramStatus) return;
+    const next = !telegramStatus.settings[key];
+    setTelegramStatus({ ...telegramStatus, settings: { ...telegramStatus.settings, [key]: next } });
+    try {
+      await api('/api/telegram/settings', { method: 'PUT', body: JSON.stringify({ [key]: next }) });
+    } catch (e) {
+      loadTelegramStatus();
+      toast({ title: 'Xato', description: e instanceof Error ? e.message : 'Saqlanmadi', variant: 'destructive' });
     }
   };
 
@@ -250,6 +339,73 @@ export function ProfileScreen() {
                 <p className="text-[11px] text-muted-foreground">Parolingiz yo\u2018q — faqat ulangan provayder(lar) orqali kirasiz.</p>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Telegram push notifications */}
+        {telegramStatus?.available && (
+          <div className="mt-4 rounded-2xl border border-border bg-card p-4">
+            <div className="mb-2 flex items-center gap-2 text-sm font-bold">
+              <Send className="h-4 w-4 text-primary" />
+              Telegram bildirishnomalari {telegramStatus.connected ? '· ulangan' : ''}
+            </div>
+            {!telegramStatus.connected ? (
+              <div className="space-y-2">
+                <p className="text-[11px] text-muted-foreground">
+                  Vazifalar, moliyaviy yozuvlar va obuna yangilanishlari haqida Telegram orqali eslatma oling.
+                </p>
+                <button
+                  onClick={connectTelegram}
+                  disabled={telegramBusy}
+                  className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground disabled:opacity-60"
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                  Telegramni ulash
+                </button>
+                {telegramDeepLink && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Telegram ochilmasa,{' '}
+                    <a href={telegramDeepLink} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline">
+                      shu havolani
+                    </a>{' '}
+                    bosing va botga /start yuboring. Kuting — ulash avtomatik aniqlanadi.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {(
+                  [
+                    ['telegramEnabled', 'Barcha bildirishnomalar'],
+                    ['taskNotifications', 'Vazifa eslatmalari'],
+                    ['financialNotifications', 'Moliyaviy yangilanishlar'],
+                    ['businessNotifications', 'Biznes / ariza yangilanishlari'],
+                    ['subscriptionNotifications', 'Obuna yangilanishlari'],
+                  ] as [keyof TelegramStatus['settings'], string][]
+                ).map(([key, label]) => (
+                  <label key={key} className="flex items-center justify-between rounded-xl bg-accent p-2.5 text-xs">
+                    <span className={cn('font-medium', key !== 'telegramEnabled' && !telegramStatus.settings.telegramEnabled && 'opacity-50')}>
+                      {label}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={telegramStatus.settings[key]}
+                      disabled={key !== 'telegramEnabled' && !telegramStatus.settings.telegramEnabled}
+                      onChange={() => toggleTelegramSetting(key)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                  </label>
+                ))}
+                <button
+                  onClick={disconnectTelegram}
+                  disabled={telegramBusy}
+                  className="flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold disabled:opacity-60"
+                >
+                  <Unlink className="h-3.5 w-3.5" />
+                  Telegramni uzish
+                </button>
+              </div>
+            )}
           </div>
         )}
 
