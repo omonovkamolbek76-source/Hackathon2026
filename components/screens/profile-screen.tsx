@@ -24,7 +24,7 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 export function ProfileScreen() {
-  const { navigate, user, logout, refreshSession, refreshGate } = useApp();
+  const { navigate, user, logout, refreshSession } = useApp();
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [qr, setQr] = useState('');
   const [mfaToken, setMfaToken] = useState('');
@@ -164,8 +164,7 @@ export function ProfileScreen() {
     try {
       await api('/api/telegram/connection', { method: 'DELETE' });
       loadTelegramStatus();
-      toast({ title: 'Telegram uzildi', description: 'Qayta kirish uchun botni ulash shart' });
-      await refreshGate();
+      toast({ title: 'Telegram uzildi' });
     } catch (e) {
       toast({ title: 'Xato', description: e instanceof Error ? e.message : 'Uzib bo\u2018lmadi', variant: 'destructive' });
     } finally {
@@ -341,7 +340,7 @@ export function ProfileScreen() {
             {!telegramStatus.connected ? (
               <div className="space-y-2">
                 <p className="text-[11px] text-muted-foreground">
-                  Vazifalar, X/Z hisobot, aylanma, to‘lov muddatlari va SWOT haqida Telegram orqali eslatma oling. Botni ulash majburiy.
+                  Vazifalar, X/Z hisobot, aylanma, to‘lov muddatlari va SWOT haqida Telegram orqali eslatma oling. Faqat platformadagi haqiqiy yozuvlar yuboriladi.
                 </p>
                 <button
                   onClick={connectTelegram}
@@ -393,7 +392,6 @@ export function ProfileScreen() {
                   <Unlink className="h-3.5 w-3.5" />
                   Telegramni uzish
                 </button>
-                <p className="text-[11px] text-muted-foreground">Uzilsa, ilovaga qaytish uchun botni qayta ulash shart.</p>
               </div>
             )}
           </div>

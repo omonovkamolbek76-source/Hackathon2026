@@ -4,8 +4,6 @@ import dynamic from 'next/dynamic';
 import { useApp } from '@/lib/store';
 import { AppShell } from '@/components/app/app-shell';
 import { AuthScreen } from '@/components/screens/auth-screen';
-import { TelegramGateScreen } from '@/components/screens/telegram-gate-screen';
-import { OnboardingScreen } from '@/components/screens/onboarding-screen';
 
 const HomeScreen = dynamic(() => import('@/components/screens/home-screen').then((m) => m.HomeScreen), { ssr: false });
 const AIScreen = dynamic(() => import('@/components/screens/ai-screen').then((m) => m.AIScreen), { ssr: false });
@@ -44,7 +42,7 @@ const SubscriptionScreen = dynamic(
 );
 
 export default function Home() {
-  const { screen, user, authLoading, gate } = useApp();
+  const { screen, user, authLoading } = useApp();
 
   if (authLoading) {
     return (
@@ -55,15 +53,6 @@ export default function Home() {
   }
 
   if (!user) return <AuthScreen />;
-  if (gate === 'loading') {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-        Yuklanmoqda...
-      </div>
-    );
-  }
-  if (gate === 'telegram') return <TelegramGateScreen />;
-  if (gate === 'onboarding') return <OnboardingScreen />;
 
   const renderScreen = () => {
     switch (screen) {

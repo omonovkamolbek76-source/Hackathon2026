@@ -16,7 +16,7 @@ import { logger } from '@/lib/logger';
 
 const globalForScheduler = globalThis as unknown as { __telegramSchedulerStarted?: boolean };
 
-const DEFAULT_INTERVAL_SECONDS = 25;
+const DEFAULT_INTERVAL_SECONDS = 30;
 const MIN_INTERVAL_SECONDS = 5; // guard against a misconfigured, too-aggressive interval
 
 function getIntervalMs(): number {

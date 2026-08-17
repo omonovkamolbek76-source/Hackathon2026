@@ -221,13 +221,3 @@ Client xato klassifikatsiyasi, link token lifecycle (yaratish/bir martalik/mudda
 **Keyingi qadamlar**
 - Foydalanuvchi `.env` da `TELEGRAM_BOT_TOKEN` + `TELEGRAM_BOT_USERNAME` va Profil orqali botni ulashi kerak — shunda X/Z/SWOT Telegramga ketadi.
 - Haqiqiy Gemini kaliti AI maslahatini to‘liq rejimda yoqadi; hisobot savollari baribir platforma raqamidan.
-
----
-
-## 7. Majburiy Telegram + profil vizard (2026-08-17)
-
-**Bajarildi**
-- Google/Microsoft tugmalari ixcham: 18px ikonka, `h-10` qator (`h-4.5` Tailwind klassi yo‘qligi sabab SVG katta chiqardi).
-- Telegram bot ulash **majburiy** (token sozlangan bo‘lsa). Ulanganda ism bilan xush kelibsiz shabloni.
-- Keyin profil vizard: **G‘oya** yoki **ishlab turgan biznes**. Bozor/mahsulot/qayerda sotish savollari. Ishlab turgan + mablag‘ hisobi → X/Z.
-- Checker 25s. Kunlik yo‘nalish va profil-tayyor xabari — shablon, AI emas. AI maslahat ilovada.

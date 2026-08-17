@@ -48,9 +48,6 @@ interface AppStore {
   oauthLinked: string | null;
   clearOAuthNotice: () => void;
 
-  gate: 'loading' | 'telegram' | 'onboarding' | 'app';
-  refreshGate: () => Promise<void>;
-
   screen: ScreenId;
   navigate: (screen: ScreenId) => void;
   goBack: () => void;
@@ -145,7 +142,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [oauthMfaPending, setOauthMfaPending] = useState(false);
   const [oauthError, setOauthError] = useState<string | null>(null);
   const [oauthLinked, setOauthLinked] = useState<string | null>(null);
-  const [gate, setGate] = useState<'loading' | 'telegram' | 'onboarding' | 'app'>('loading');
 
   const navigate = useCallback((s: ScreenId) => {
     setScreen(s);
@@ -267,39 +263,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setOauthLinked(null);
   }, []);
 
-  const refreshGate = useCallback(async () => {
-    try {
-      const d = await api<{
-        telegramRequired: boolean;
-        telegramConnected: boolean;
-        onboardingCompleted: boolean;
-      }>('/api/onboarding');
-      if (d.telegramRequired && !d.telegramConnected) {
-        setGate('telegram');
-        return;
-      }
-      if (!d.onboardingCompleted) {
-        setGate('onboarding');
-        return;
-      }
-      setGate('app');
-    } catch {
-      setGate('app');
-    }
-  }, []);
-
   useEffect(() => {
-    if (!user) {
-      setGate('loading');
-      return;
-    }
-    void refreshGate();
-  }, [user, refreshGate]);
-
-  useEffect(() => {
-    if (!user || gate !== 'app') return;
+    if (!user) return;
     Promise.all([loadTasks(), loadChat(), loadAnalytics()]).catch(() => undefined);
-  }, [user, gate, loadTasks, loadChat, loadAnalytics]);
+  }, [user, loadTasks, loadChat, loadAnalytics]);
 
   const login = useCallback(async (email: string, password: string, mfaCode?: string) => {
     const data = await api<{ user: AuthUser }>('/api/auth/login', {
@@ -338,7 +305,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTransactions([]);
     setScreen('home');
     setHistory(['home']);
-    setGate('loading');
   }, []);
 
   const toggleTask = useCallback(async (id: string) => {
@@ -492,8 +458,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         oauthError,
         oauthLinked,
         clearOAuthNotice,
-        gate,
-        refreshGate,
         screen,
         navigate,
         goBack,

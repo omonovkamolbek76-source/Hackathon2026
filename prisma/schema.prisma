@@ -243,11 +243,6 @@ model BusinessProfile {
   stage             String   @default("IDEA") // IDEA | VALIDATION | STARTING | EARLY_SALES | GROWING | ESTABLISHED
   goals             String   @default("[]")
   challenges        String   @default("[]")
-  // Mandatory first-run wizard: IDEA (g‘oya) | OPERATING (ishlab turgan biznes)
-  path              String   @default("")
-  marketEntry       String   @default("")
-  tracksFinances    Boolean  @default(false)
-  onboardingCompleted Boolean @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
