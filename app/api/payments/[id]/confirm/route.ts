@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { writeAudit } from '@/lib/audit';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { jsonError, jsonOk } from '@/lib/api';
+import { activateSubscriptionFromPaidPayment } from '@/lib/subscription';
 
 const LOCAL_CONFIRM_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -36,11 +37,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
       data: { status: 'paid' },
     });
     await writeAudit({ userId: user.id, action: 'payment.paid_local', meta: { id: payment.id } });
+    await activateSubscriptionFromPaidPayment(updated);
+    const amountLabel =
+      payment.currency === 'USD'
+        ? `$${(payment.amount / 100).toFixed(2)}`
+        : `${payment.amount.toLocaleString('uz-UZ')} so‘m`;
     await prisma.notification.create({
       data: {
         userId: user.id,
         title: 'To‘lov qabul qilindi',
-        body: `Summa: ${payment.amount.toLocaleString('uz-UZ')} so‘m (local checkout).`,
+        body: `Summa: ${amountLabel} (local checkout).`,
         kind: 'payment',
       },
     });

@@ -6,9 +6,12 @@ export async function createPaymentSession(input: {
   userId: string;
   amount: number;
   purpose?: string;
+  /** 'UZS' (default, legacy so'm amounts) or 'USD' (amount is ALREADY in cents — subscription plans). */
+  currency?: 'UZS' | 'USD';
 }) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
+  const currency = input.currency || 'UZS';
 
   if (stripeKey) {
     // Minimal Stripe Checkout Session via REST (no SDK required)
@@ -21,9 +24,12 @@ export async function createPaymentSession(input: {
       params.set('line_items[0][price]', price);
       params.set('line_items[0][quantity]', '1');
     } else {
-      params.set('line_items[0][price_data][currency]', 'usd');
+      // USD amounts are already in cents (e.g. subscription plan prices);
+      // UZS amounts use a rough demo so'm→cent conversion for the legacy flow.
+      const unitAmountCents = currency === 'USD' ? Math.max(50, Math.round(input.amount)) : Math.max(100, Math.round(input.amount / 120));
+      params.set('line_items[0][price_data][currency]', currency.toLowerCase());
       params.set('line_items[0][price_data][product_data][name]', input.purpose || 'TadbirkorAI');
-      params.set('line_items[0][price_data][unit_amount]', String(Math.max(100, Math.round(input.amount / 120)))); // rough UZS→cent demo
+      params.set('line_items[0][price_data][unit_amount]', String(unitAmountCents));
       params.set('line_items[0][quantity]', '1');
     }
     params.set('metadata[userId]', input.userId);
@@ -46,6 +52,7 @@ export async function createPaymentSession(input: {
         userId: input.userId,
         provider: 'stripe',
         amount: input.amount,
+        currency,
         purpose: input.purpose || 'subscription',
         status: 'pending',
         externalId: data.id,
@@ -62,6 +69,7 @@ export async function createPaymentSession(input: {
       userId: input.userId,
       provider: 'local',
       amount: input.amount,
+      currency,
       purpose: input.purpose || 'subscription',
       status: 'pending',
       externalId,

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { verifyStripeWebhookSignature } from '@/lib/payments';
+import { activateSubscriptionFromPaidPayment } from '@/lib/subscription';
 import { writeAudit } from '@/lib/audit';
 import { logger } from '@/lib/logger';
 import { jsonError, jsonOk } from '@/lib/api';
@@ -47,8 +48,9 @@ export async function POST(request: Request) {
         return jsonOk({ received: true });
       }
       if (payment.status !== 'paid') {
-        await prisma.payment.update({ where: { id: payment.id }, data: { status: 'paid' } });
+        const updated = await prisma.payment.update({ where: { id: payment.id }, data: { status: 'paid' } });
         await writeAudit({ userId: payment.userId, action: 'payment.paid_stripe', meta: { id: payment.id, sessionId } });
+        await activateSubscriptionFromPaidPayment(updated);
         await prisma.notification.create({
           data: {
             userId: payment.userId,
