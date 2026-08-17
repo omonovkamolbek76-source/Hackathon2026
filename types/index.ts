@@ -8,7 +8,8 @@ export type ScreenId =
   | 'credit-matching'
   | 'credit-comparison'
   | 'credit-allocation'
-  | 'credit-roadmap';
+  | 'credit-roadmap'
+  | 'subscription';
 
 export interface User {
   id: string;
@@ -100,6 +101,13 @@ export interface BusinessPlan {
 
 export type AIMessageRole = 'user' | 'assistant';
 
+export type AIProposedAction = {
+  intent: 'create_task' | 'create_transaction';
+  confidence: number;
+  requires_confirmation: true;
+  data: Record<string, unknown>;
+};
+
 export interface AIMessage {
   id: string;
   role: AIMessageRole;
@@ -108,6 +116,7 @@ export interface AIMessage {
   timestamp: number;
   stage?: number;
   stageName?: string;
+  action?: AIProposedAction;
 }
 
 export interface KPI {

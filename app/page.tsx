@@ -36,6 +36,10 @@ const CreditRoadmapScreen = dynamic(
   () => import('@/components/screens/credit-roadmap-screen').then((m) => m.CreditRoadmapScreen),
   { ssr: false },
 );
+const SubscriptionScreen = dynamic(
+  () => import('@/components/screens/subscription-screen').then((m) => m.SubscriptionScreen),
+  { ssr: false },
+);
 
 export default function Home() {
   const { screen, user, authLoading } = useApp();
@@ -72,6 +76,8 @@ export default function Home() {
         return <CreditAllocationScreen />;
       case 'credit-roadmap':
         return <CreditRoadmapScreen />;
+      case 'subscription':
+        return <SubscriptionScreen />;
       default:
         return <HomeScreen />;
     }

@@ -60,6 +60,7 @@ interface AppStore {
   chatMessages: AIMessage[];
   loadChat: () => Promise<void>;
   sendCoachMessage: (text: string) => Promise<void>;
+  confirmAiAction: (action: NonNullable<AIMessage['action']>) => Promise<{ ok: boolean; result: { type: string } }>;
   resetChat: () => Promise<void>;
   journeyStage: number;
   setJourneyStage: (n: number) => void;
@@ -321,6 +322,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const data = await api<{
         userMessage: AIMessage;
         assistantMessage: AIMessage;
+        action?: AIMessage['action'];
       }>('/api/coach', {
         method: 'POST',
         body: JSON.stringify({
@@ -337,12 +339,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           quickReplies: Array.isArray(data.assistantMessage.quickReplies)
             ? (data.assistantMessage.quickReplies as string[])
             : undefined,
+          action: data.action,
         },
       ]);
       if (data.assistantMessage.stage != null) setJourneyStage(data.assistantMessage.stage);
     },
     [journeyStage, journeyProfile],
   );
+
+  const confirmAiAction = useCallback(async (action: NonNullable<AIMessage['action']>) => {
+    return api<{ ok: boolean; result: { type: string } }>('/api/coach/actions', {
+      method: 'POST',
+      body: JSON.stringify({ action, confirm: true }),
+    });
+  }, []);
 
   const resetChat = useCallback(async () => {
     await api('/api/coach', { method: 'DELETE' });
@@ -457,6 +467,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         chatMessages,
         loadChat,
         sendCoachMessage,
+        confirmAiAction,
         resetChat,
         journeyStage,
         setJourneyStage,

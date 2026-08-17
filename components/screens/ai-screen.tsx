@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Bot, Clock, Send, Sparkles, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
+import type { AIMessage } from '@/types';
 import {
   monthlyPayment,
   creditLoadCheck,
@@ -71,7 +73,10 @@ export function AIScreen() {
     setJourneyStage,
     resetChat,
     sendCoachMessage,
+    confirmAiAction,
     runCreditMatch,
+    loadTasks,
+    loadAnalytics,
   } = useApp();
 
   const [input, setInput] = useState('');
@@ -80,9 +85,11 @@ export function AIScreen() {
   const [localExtras, setLocalExtras] = useState<
     { id: string; role: 'user' | 'assistant'; content: string; quickReplies?: string[] }[]
   >([]);
+  const [resolvedActions, setResolvedActions] = useState<Set<string>>(new Set());
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const messages = [
+  const messages: AIMessage[] = [
     ...chatMessages,
     ...localExtras.map((m) => ({
       id: m.id,
@@ -92,6 +99,21 @@ export function AIScreen() {
       timestamp: Date.now(),
     })),
   ];
+
+  const handleConfirmAction = async (messageId: string, action: NonNullable<AIMessage['action']>) => {
+    setConfirmingId(messageId);
+    try {
+      await confirmAiAction(action);
+      setResolvedActions((prev) => new Set(prev).add(messageId));
+      toast({ title: action.intent === 'create_task' ? 'Vazifa qo‘shildi' : 'Tranzaksiya qo‘shildi' });
+      if (action.intent === 'create_task') await loadTasks();
+      else await loadAnalytics();
+    } catch (e) {
+      toast({ title: 'Xato', description: e instanceof Error ? e.message : 'Saqlanmadi', variant: 'destructive' });
+    } finally {
+      setConfirmingId(null);
+    }
+  };
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -316,6 +338,30 @@ export function AIScreen() {
                       <Sparkles className="h-4 w-4" />
                       Natijani ko‘rish
                     </button>
+                  )}
+                  {msg.role === 'assistant' && msg.action && !resolvedActions.has(msg.id) && (
+                    <div className="mt-2 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                      <p className="text-xs font-semibold text-foreground">
+                        {msg.action.intent === 'create_task'
+                          ? `Vazifa qo‘shaman: "${String(msg.action.data.title || '')}"`
+                          : `${msg.action.data.type === 'income' ? 'Daromad' : 'Xarajat'} qo‘shaman: "${String(msg.action.data.title || '')}" — ${Number(msg.action.data.amount || 0).toLocaleString('uz-UZ')} so‘m`}
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          onClick={() => handleConfirmAction(msg.id, msg.action!)}
+                          disabled={confirmingId === msg.id}
+                          className="flex-1 rounded-lg bg-primary py-2 text-xs font-bold text-primary-foreground disabled:opacity-60"
+                        >
+                          {confirmingId === msg.id ? 'Saqlanmoqda...' : 'Tasdiqlash'}
+                        </button>
+                        <button
+                          onClick={() => setResolvedActions((prev) => new Set(prev).add(msg.id))}
+                          className="rounded-lg border px-3 py-2 text-xs font-semibold"
+                        >
+                          Bekor qilish
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>

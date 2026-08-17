@@ -360,6 +360,11 @@ export function ProfileScreen() {
         </div>
 
         <div className="mt-5 space-y-1.5">
+          <button onClick={() => navigate('subscription')} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3.5">
+            <CreditCard className="h-5 w-5 text-primary" />
+            <span className="flex-1 text-left text-sm font-semibold">Obuna / Subscription</span>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </button>
           <button onClick={() => navigate('business-plan')} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3.5">
             <Briefcase className="h-5 w-5 text-primary" />
             <span className="flex-1 text-left text-sm font-semibold">Biznes rejalari</span>

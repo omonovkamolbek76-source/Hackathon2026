@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, BarChart3, Bot, FileText, User, Sparkles } from 'lucide-react';
+import { Home, BarChart3, Bot, FileText, User, Sparkles, CreditCard } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import type { ScreenId } from '@/types';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,10 @@ const navItems: { id: ScreenId; label: string; icon: React.ComponentType<{ class
   { id: 'business-plan', label: 'Biznes reja', icon: FileText },
   { id: 'analytics', label: 'Tahlil', icon: BarChart3 },
   { id: 'tasks', label: 'Vazifalar', icon: Sparkles },
+];
+
+const bottomNavItems: { id: ScreenId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'subscription', label: 'Obuna', icon: CreditCard },
   { id: 'profile', label: 'Profil', icon: User },
 ];
 
@@ -30,6 +34,26 @@ export function Sidebar() {
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = screen === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => navigate(item.id)}
+              className={cn(
+                'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                isActive
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+              )}
+            >
+              <Icon className="h-5 w-5" />
+              {item.label}
+            </button>
+          );
+        })}
+        <div className="my-2 border-t border-border" />
+        {bottomNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = screen === item.id;
           return (
