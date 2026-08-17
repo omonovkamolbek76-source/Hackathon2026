@@ -3,7 +3,7 @@
 # TadbirkorAI — kodni tortib olib, hammasini bitta buyruq bilan ishga tushirish
 #   ./start.sh          -> git pull + dev rejimida ishga tushiradi (backend + frontend, chunki Next.js'da ular bitta)
 #   ./start.sh prod     -> git pull + build qiladi va production rejimida ishga tushiradi
-#   ./start.sh postgres -> Docker orqali Postgres'ni ham ko'taradi (SQLite o'rniga)
+#   ./start.sh postgres -> Docker orqali lokal Postgres'ni ko'taradi (DATABASE_URL bo'sh/hosted bo'lmasa)
 #   ./start.sh nopull   -> git pull'ni o'tkazib yuboradi (faqat lokal kod bilan ishga tushiradi)
 #
 # Bu skript quyidagilarni o'zi bajaradi:
@@ -116,10 +116,16 @@ if [ "$USE_POSTGRES" = "true" ]; then
     if [ "$i" = "30" ]; then fail "Postgres 30 soniyada tayyor bo'lmadi"; fi
   done
   if ! grep -q '^DATABASE_URL="postgresql' .env; then
-    warn "DATABASE_URL hali Postgres'ga yo'naltirilmagan."
-    warn "  .env ichida DATABASE_URL ni quyidagicha o'zgartiring va prisma/schema.prisma'da provider=\"postgresql\" qiling:"
-    warn "  DATABASE_URL=\"postgresql://tadbirkor:tadbirkor@localhost:5432/tadbirkorai?schema=public\""
+    info ".env ichidagi DATABASE_URL lokal Docker Postgres'ga yo'naltirilmoqda..."
+    sed -i.bak 's#^DATABASE_URL=.*#DATABASE_URL="postgresql://tadbirkor:tadbirkor@localhost:5432/tadbirkorai?schema=public"#' .env
+    rm -f .env.bak
+    # shellcheck disable=SC1091
+    set -a; source .env; set +a
   fi
+fi
+
+if ! grep -qE '^DATABASE_URL="postgresql' .env; then
+  fail "DATABASE_URL PostgreSQL manzili bo'lishi kerak (schema.prisma provider=\"postgresql\"). Lokal uchun './start.sh postgres' ishlating, yoki .env'da hosted Postgres (Neon/Supabase) manzilini qo'ying."
 fi
 
 # --- 5) Prisma: client generatsiya + baza + seed ---

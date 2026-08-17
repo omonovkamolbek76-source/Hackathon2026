@@ -63,7 +63,9 @@ if (!map.get('AUTH_SECRET') || (map.get('AUTH_SECRET') || '').length < 32) {
   map.set('AUTH_SECRET', require('crypto').randomBytes(48).toString('base64url'));
   updated += 1;
 }
-if (!map.get('DATABASE_URL')) map.set('DATABASE_URL', 'file:./dev.db');
+if (!map.get('DATABASE_URL')) {
+  map.set('DATABASE_URL', 'postgresql://tadbirkor:tadbirkor@localhost:5432/tadbirkorai?schema=public');
+}
 if (!map.get('GEMINI_MODEL')) map.set('GEMINI_MODEL', 'gemini-2.0-flash');
 if (!map.get('NEXT_PUBLIC_APP_NAME')) map.set('NEXT_PUBLIC_APP_NAME', 'TadbirkorAI');
 if (!map.get('APP_URL')) map.set('APP_URL', 'http://localhost:3000');

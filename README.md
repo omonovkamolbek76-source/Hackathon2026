@@ -5,7 +5,7 @@ O‘zbekiston tadbirkorlari uchun AI moliyaviy va biznes yordamchi.
 ## Stack
 
 - Next.js 13 App Router + API Routes
-- Prisma + SQLite (Postgres: `docker compose up -d` + `DATABASE_URL`)
+- Prisma + PostgreSQL (lokal: `docker compose up -d`; hosted/serverless: Neon/Supabase kabi bepul Postgres — `DATABASE_URL`ga qo'ying)
 - Auth: bcrypt + httpOnly JWT + **MFA (TOTP)** + **Google/Microsoft OAuth/OIDC** (ixtiyoriy)
 - AI: **AI Business Copilot — faqat Google Gemini** (boshqa provider yo'q). Kalitsiz — lokal (AI bo'lmagan) qoida-asosidagi murabbiy.
 - Subscription: 5 reja (Free/Business/Business Pro/Financial/Financial Pro) — narx/limit DB'da (hardcode emas), backend-side entitlement + kunlik AI kvota
@@ -27,7 +27,9 @@ Bu skript avtomatik ravishda: **eng so'nggi kodni `git pull` orqali oladi** (`ma
 `AUTH_SECRET` kabi qiymatlarni generatsiya qiladi, Prisma client yasaydi,
 bazani sozlaydi (`db push`), boshlang'ich ma'lumotlarni yuklaydi (seed) va
 serverni http://localhost:3000 da ishga tushiradi. Hech qanday API kalitisiz
-ham ishlaydi (lokal murabbiy, lokal to'lov, SQLite).
+ham ishlaydi (lokal murabbiy, lokal to'lov). Postgres kerak — `./start.sh postgres`
+Docker orqali avtomatik ko'taradi, yoki `.env`da hosted Postgres (Neon/Supabase)
+manzilini qo'yib oddiy `./start.sh` bilan ishga tushirish mumkin.
 
 Qo'shimcha rejimlar:
 
