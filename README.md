@@ -23,7 +23,7 @@ Backend ham, frontend ham bitta Next.js ilovada (API route'lar shu ichida), shun
 # yoki: npm run start:all
 ```
 
-Bu skript avtomatik ravishda: `.env` yaratadi/tekshiradi, paketlarni o'rnatadi,
+Bu skript avtomatik ravishda: **eng so'nggi kodni `git pull` orqali oladi** (`main` branch, saqlanmagan lokal o'zgarish bo'lsa xavfsiz o'tkazib yuboradi), `.env` yaratadi/tekshiradi, paketlarni o'rnatadi,
 `AUTH_SECRET` kabi qiymatlarni generatsiya qiladi, Prisma client yasaydi,
 bazani sozlaydi (`db push`), boshlang'ich ma'lumotlarni yuklaydi (seed) va
 serverni http://localhost:3000 da ishga tushiradi. Hech qanday API kalitisiz
@@ -32,8 +32,9 @@ ham ishlaydi (lokal murabbiy, lokal to'lov, SQLite).
 Qo'shimcha rejimlar:
 
 ```bash
-./start.sh prod       # production build + start (npm run start:all:prod)
+./start.sh prod       # git pull + production build + start (npm run start:all:prod)
 ./start.sh postgres   # Postgres'ni Docker orqali ko'taradi (npm run start:all:postgres)
+./start.sh nopull     # git pull'ni o'tkazib yuborib, faqat lokal kod bilan ishga tushiradi
 ```
 
 ### Qo'lda, bosqichma-bosqich (ixtiyoriy)

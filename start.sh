@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # ============================================================
-# TadbirkorAI — hammasini bitta buyruq bilan ishga tushirish
-#   ./start.sh          -> dev rejimida ishga tushiradi (backend + frontend, chunki Next.js'da ular bitta)
-#   ./start.sh prod     -> build qiladi va production rejimida ishga tushiradi
+# TadbirkorAI — kodni tortib olib, hammasini bitta buyruq bilan ishga tushirish
+#   ./start.sh          -> git pull + dev rejimida ishga tushiradi (backend + frontend, chunki Next.js'da ular bitta)
+#   ./start.sh prod     -> git pull + build qiladi va production rejimida ishga tushiradi
 #   ./start.sh postgres -> Docker orqali Postgres'ni ham ko'taradi (SQLite o'rniga)
+#   ./start.sh nopull   -> git pull'ni o'tkazib yuboradi (faqat lokal kod bilan ishga tushiradi)
 #
 # Bu skript quyidagilarni o'zi bajaradi:
+#   0) git pull orqali eng so'nggi kodni oladi (main branch, saqlanmagan o'zgarish bo'lsa xavfsiz o'tkazib yuboradi)
 #   1) .env faylini tekshiradi/yaratadi
 #   2) node_modules'ni o'rnatadi (agar kerak bo'lsa)
 #   3) AUTH_SECRET va boshqa default qiymatlarni to'ldiradi
@@ -19,12 +21,14 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 MODE="dev"
 USE_POSTGRES="false"
+DO_PULL="true"
 for arg in "$@"; do
   case "$arg" in
     prod|production) MODE="prod" ;;
     dev|development) MODE="dev" ;;
     postgres|pg) USE_POSTGRES="true" ;;
-    *) echo "Noma'lum argument: $arg (dev|prod|postgres qabul qilinadi)"; exit 1 ;;
+    nopull|no-pull) DO_PULL="false" ;;
+    *) echo "Noma'lum argument: $arg (dev|prod|postgres|nopull qabul qilinadi)"; exit 1 ;;
   esac
 done
 
@@ -38,6 +42,34 @@ fail()  { echo -e "${RED}✘${RESET} $1"; exit 1; }
 command -v node >/dev/null 2>&1 || fail "Node.js topilmadi. O'rnating: https://nodejs.org"
 command -v npm  >/dev/null 2>&1 || fail "npm topilmadi."
 info "Node $(node -v), npm $(npm -v)"
+
+# --- 0.5) Eng so'nggi kodni git orqali tortib olish ---
+if [ "$DO_PULL" = "true" ]; then
+  if ! command -v git >/dev/null 2>&1; then
+    warn "git topilmadi — pull bosqichi o'tkazib yuborildi"
+  elif [ ! -d .git ]; then
+    warn "Bu git repository emas — pull bosqichi o'tkazib yuborildi"
+  elif ! git remote get-url origin >/dev/null 2>&1; then
+    warn "git remote (origin) topilmadi — pull bosqichi o'tkazib yuborildi"
+  else
+    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+    if [ -z "$CURRENT_BRANCH" ] || [ "$CURRENT_BRANCH" = "HEAD" ]; then
+      warn "Joriy branch aniqlanmadi (detached HEAD) — pull bosqichi o'tkazib yuborildi"
+    elif [ -n "$(git status --porcelain)" ]; then
+      warn "Saqlanmagan o'zgarishlar bor — xavfsizlik uchun 'git pull' o'tkazib yuborildi."
+      warn "  Avval o'zgarishlaringizni saqlang: git add -A && git commit -m \"...\"  (yoki: git stash)"
+    else
+      info "Eng so'nggi kod olinmoqda (git pull --ff-only origin $CURRENT_BRANCH)..."
+      if git fetch origin "$CURRENT_BRANCH" 2>&1 && git merge --ff-only "origin/$CURRENT_BRANCH" 2>&1; then
+        ok "Kod eng so'nggi holatga yangilandi ($CURRENT_BRANCH)"
+      else
+        warn "git pull muvaffaqiyatsiz tugadi (tarmoq yo'q yoki lokal tarix uzilgan bo'lishi mumkin) — joriy lokal kod bilan davom etiladi"
+      fi
+    fi
+  fi
+else
+  warn "git pull o'tkazib yuborildi (--nopull)"
+fi
 
 # --- 1) .env faylini tayyorlash ---
 if [ ! -f .env ]; then
