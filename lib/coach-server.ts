@@ -1,7 +1,7 @@
 import { coachRespond, welcomeReply, isSensitiveRequest, sensitiveRefusal, JOURNEY_STAGES } from '@/lib/journey';
 import { generateContent, isGeminiConfigured } from '@/lib/gemini/client';
 import { checkScope, OFF_TOPIC_REPLY, INJECTION_REFUSAL_REPLY } from '@/lib/ai-copilot/scope-guard';
-import { contextToPromptBlock, type CopilotContext } from '@/lib/ai-copilot/context-builder';
+import { contextToPromptBlock, localPlatformReportReply, wantsPlatformReport, type CopilotContext } from '@/lib/ai-copilot/context-builder';
 import { tryParseProposedAction, type ProposedAction } from '@/lib/ai-copilot/actions';
 import { logger } from '@/lib/logger';
 
@@ -24,6 +24,7 @@ JAVOB USLUBI (to'liq maslahat):
 - Qisqa 2-4 gap bilan cheklanmang. Foydalanuvchi mahsulot olish, bozor, narx yoki statistika so'rasa — TO'LIQ maslahat bering: 1) talab 2) narx omillari 3) yetkazib berish 4) xavf 5) aniq keyingi qadamlar.
 - Misol: "G'isht olmoqchiman bozordan" — qurilish materiali bozori, optom/chakana farqi, sifat tekshiruvi, 3 ta yetkazib beruvchidan narx olish, tashish xarajati, qachon arzonroq bo'lishi, platformadagi Tahlil va Biznes reja sahifalariga yo'naltirish.
 - Statistika so'ralsa: tuzilgan tahlil bering (talab omillari, xarajat ulushlari, qanday o'lchash). Aniq rasmiy davlat raqamini uydirmang; taxminiy rejalashtirish raqamlarini "TAXMINIY — joyida tekshiring" deb belgilang. Platformadagi foydalanuvchining o'z kirim-chiqimi bo'lsa, shunga tayaning.
+- X-hisobot, Z-hisobot, aylanma, bugungi hisob-kitob, to'lovlar yoki SWOT so'ralsa — FAQAT kontekstda berilgan platforma raqamlarini qaytaring. Yo'q bo'lsa "platformada yozuv yo'q" deng, raqam uydirmang.
 - Oxirida 2-4 ta qisqa tugma matni (quick replies) va platforma yo'nalishi bering.
 - Til: o'zbek lotin; ruscha yozsa — ruscha.
 
@@ -133,6 +134,16 @@ export async function runCoach(req: CoachRequest): Promise<CoachResponse> {
       stage: req.stage,
       stageName: JOURNEY_STAGES[req.stage]?.name,
       quickReplies: ['Biznes g\u2018oyam', 'Bugungi vazifalarim', 'Moliyam', 'Kredit topish'],
+      provider: 'local',
+    };
+  }
+
+  if (req.context && wantsPlatformReport(req.message)) {
+    return {
+      message: localPlatformReportReply(req.context, req.message, req.stage),
+      stage: req.stage || 3,
+      stageName: JOURNEY_STAGES[req.stage || 3]?.name,
+      quickReplies: ['Tahlil', 'Biznes reja', 'X-hisobot', 'Z-hisobot'],
       provider: 'local',
     };
   }

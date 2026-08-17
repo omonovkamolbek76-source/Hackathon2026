@@ -5,7 +5,7 @@ import { runCoach } from '@/lib/coach-server';
 import { detectBusinessStage } from '@/lib/ai-copilot/business-stage';
 import { scoreItem, prioritize, taskToPriorityInput } from '@/lib/ai-copilot/priority-engine';
 import { tryParseProposedAction, proposedActionSchema } from '@/lib/ai-copilot/actions';
-import { contextToPromptBlock, type CopilotContext } from '@/lib/ai-copilot/context-builder';
+import { contextToPromptBlock, localPlatformReportReply, wantsPlatformReport, type CopilotContext } from '@/lib/ai-copilot/context-builder';
 
 describe('scope-guard: business-only AI restriction', () => {
   it('allows genuine business/finance questions', () => {
@@ -92,6 +92,11 @@ describe('platform route hints from business utterances', () => {
 
   it('points business-plan speech to the plan screen', () => {
     expect(detectPlatformRoute('Biznes reja yozib ber')?.screen).toBe('business-plan');
+  });
+
+  it('points X/Z report speech to analytics', () => {
+    expect(detectPlatformRoute('Bugungi x hisobotni ko‘rsat')?.screen).toBe('analytics');
+    expect(detectPlatformRoute('Z-hisobot kerak')?.screen).toBe('analytics');
   });
 });
 
@@ -326,5 +331,50 @@ describe('least-data context builder', () => {
     const block = contextToPromptBlock(ctx);
     expect(block).toContain('IDEA');
     expect(block.length).toBeGreaterThan(0);
+  });
+});
+
+describe('platform report answers (X/Z/SWOT/payments)', () => {
+  const ctx: CopilotContext = {
+    businessName: 'Eco Trade',
+    stage: 'GROWING',
+    idea: '',
+    industry: '',
+    targetCustomer: '',
+    goalsSummary: '',
+    financeSummary: "Jami kirim: 5,000,000 so'm, jami chiqim: 3,000,000 so'm, sof: 2,000,000 so'm",
+    tasksSummary: '',
+    todaySummary: "Bugun (2026-08-17): aylanma 1,250,000 so'm",
+    xReportSummary: 'X-hisobot — 2026-08-17\nAylanma (kirim): 1 250 000 so‘m',
+    zReportSummary: 'Z-hisobot hali yopilmagan',
+    paymentsDueSummary: '• Soliq to‘lash',
+    swotSummary: 'SWOT — Eco Trade\nKuchli tomonlar',
+  };
+
+  it('detects X/Z/hisob/SWOT questions including common misspellings', () => {
+    expect(wantsPlatformReport('bugungi hisob kitoblar tahlillar z ochchot x ochchot')).toBe(true);
+    expect(wantsPlatformReport('SWOT ber')).toBe(true);
+    expect(wantsPlatformReport('nimalarga to‘lov qilish kerak')).toBe(true);
+    expect(wantsPlatformReport("G'isht olmoqchiman bozordan")).toBe(false);
+  });
+
+  it('answers from context numbers and does not invent turnover', async () => {
+    const r = await runCoach({
+      message: 'bugungi hisob kitoblar z ochchot x ochchot',
+      stage: 3,
+      allowGemini: false,
+      context: ctx,
+    });
+    expect(r.provider).toBe('local');
+    expect(r.message).toContain('1,250,000');
+    expect(r.message).toContain('X-hisobot');
+    expect(r.message).toContain('Soliq to‘lash');
+    expect(r.message).not.toMatch(/uydirma aylanma 100 mln/i);
+  });
+
+  it('returns stored SWOT when asked', () => {
+    const text = localPlatformReportReply(ctx, 'svotga ber', 3);
+    expect(text).toContain('Eco Trade');
+    expect(text).toContain('SWOT');
   });
 });

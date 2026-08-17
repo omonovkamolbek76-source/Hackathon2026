@@ -82,6 +82,13 @@ export interface FundAllocation {
   icon: string;
 }
 
+export interface BusinessPlanSwot {
+  strengths: string[];
+  weaknesses: string[];
+  opportunities: string[];
+  threats: string[];
+}
+
 export interface BusinessPlan {
   businessName: string;
   targetAudience: string;
@@ -97,6 +104,18 @@ export interface BusinessPlan {
   expectedRevenue: string;
   breakeven: string;
   nextSteps: string[];
+  swot?: BusinessPlanSwot;
+}
+
+export interface DayReport {
+  day: string;
+  income: number;
+  expense: number;
+  net: number;
+  turnover: number;
+  count: number;
+  zReady: boolean;
+  paymentsDue: { title: string; detail: string }[];
 }
 
 export type AIMessageRole = 'user' | 'assistant';
@@ -137,6 +156,7 @@ export interface AnalyticsData {
   growth: number;
   topProduct: string;
   topProductShare: number;
+  today?: DayReport;
 }
 
 export interface RoadmapStep {

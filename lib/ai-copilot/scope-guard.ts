@@ -52,7 +52,7 @@ const INJECTION_PATTERNS: RegExp[] = [
 ];
 
 const BUSINESS_LEXICON =
-  /biznes|tadbirkor|savdo|sotuv|kredit|soliq|moliya|moliyalashtirish|xarajat|daromad|foyda|reja|supplier|yetkazib|marketing|mijoz|narx|mahsulot|xizmat|bank|obuna|vazifa|kirim|chiqim|breakeven|startap|g['\u2018\u2019]oya|sarmoya|investor|ariza|hisobot|buxgalter|to['\u2018\u2019]lov|budjet|bozor|tahlil|analytics|platforma|tadbirkorai|uskuna|tovar|oylik|so['\u2018\u2019]m|million|gisht|g['\u2018\u2019]isht|qurilish|tsement|optom|chakana|statistika|olmoq|sotib/i;
+  /biznes|tadbirkor|savdo|sotuv|kredit|soliq|moliya|moliyalashtirish|xarajat|daromad|foyda|reja|supplier|yetkazib|marketing|mijoz|narx|mahsulot|xizmat|bank|obuna|vazifa|kirim|chiqim|breakeven|startap|g['\u2018\u2019]oya|sarmoya|investor|ariza|hisobot|buxgalter|to['\u2018\u2019]lov|budjet|bozor|tahlil|analytics|platforma|tadbirkorai|uskuna|tovar|oylik|so['\u2018\u2019]m|million|gisht|g['\u2018\u2019]isht|qurilish|tsement|optom|chakana|statistika|olmoq|sotib|aylanma|swot|svot|ochchot|x-hisobot|z-hisobot|hisob[\s-]?kitob/i;
 
 function wordCount(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;

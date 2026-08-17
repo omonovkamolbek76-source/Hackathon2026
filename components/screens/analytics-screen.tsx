@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Sparkles, TrendingUp, BarChart3, Star, Bot } from 'lucide-react';
+import { ArrowLeft, Sparkles, TrendingUp, BarChart3, Star, Bot, FileSpreadsheet, Wallet } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { formatCurrency } from '@/lib/format';
 import {
@@ -53,6 +53,61 @@ export function AnalyticsScreen() {
       </header>
 
       <div className="px-4 py-4 pb-20 md:px-6">
+        {data.today && (
+          <div className="mb-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <div className="mb-2 flex items-center gap-2">
+                <FileSpreadsheet className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-bold">X-hisobot · {data.today.day}</h3>
+              </div>
+              {data.today.count === 0 ? (
+                <p className="text-xs text-muted-foreground">Bugun platformada tranzaksiya yo‘q.</p>
+              ) : (
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <div className="flex justify-between"><span>Aylanma</span><span className="font-semibold text-foreground">{formatCurrency(data.today.turnover)}</span></div>
+                  <div className="flex justify-between"><span>Xarajat</span><span>{formatCurrency(data.today.expense)}</span></div>
+                  <div className="flex justify-between"><span>Sof</span><span className="font-semibold text-foreground">{formatCurrency(data.today.net)}</span></div>
+                  <div className="flex justify-between"><span>Operatsiyalar</span><span>{data.today.count} ta</span></div>
+                </div>
+              )}
+              <p className="mt-2 text-[10px] text-muted-foreground">Yopilmagan kunlik hisobot. Telegram ulangan bo‘lsa shu raqamlar yuboriladi.</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <div className="mb-2 flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-bold">Z-hisobot · {data.today.day}</h3>
+              </div>
+              {!data.today.zReady ? (
+                <p className="text-xs text-muted-foreground">Z-hisobot soat 20:00 (Toshkent) dan keyin yopiladi. Hozir X-hisobot joriy yig‘indi.</p>
+              ) : data.today.count === 0 ? (
+                <p className="text-xs text-muted-foreground">Bugun yopish uchun yozuv yo‘q.</p>
+              ) : (
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <div className="flex justify-between"><span>Aylanma</span><span className="font-semibold text-foreground">{formatCurrency(data.today.turnover)}</span></div>
+                  <div className="flex justify-between"><span>Xarajat</span><span>{formatCurrency(data.today.expense)}</span></div>
+                  <div className="flex justify-between"><span>Sof</span><span className="font-semibold text-foreground">{formatCurrency(data.today.net)}</span></div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {data.today && data.today.paymentsDue.length > 0 && (
+          <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <div className="mb-2 flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-bold">To‘lovlar va muddatlar</h3>
+            </div>
+            <ul className="space-y-2">
+              {data.today.paymentsDue.map((item) => (
+                <li key={`${item.title}-${item.detail}`} className="text-xs">
+                  <div className="font-semibold text-foreground">{item.title}</div>
+                  {item.detail ? <div className="text-muted-foreground">{item.detail}</div> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {data.monthlyRevenue.every((m) => m.revenue === 0 && m.expense === 0) && (
           <div className="mb-4 rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
             Hali ma’lumot yo‘q. Bosh sahifadan kirim/chiqim qo‘shing.

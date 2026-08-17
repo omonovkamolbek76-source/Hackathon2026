@@ -10,6 +10,10 @@ import {
   getApplicationUpdateCandidates,
   getSubscriptionUpdateCandidates,
   getSystemNotificationCandidates,
+  getXReportCandidates,
+  getZReportCandidates,
+  getPaymentsDueCandidates,
+  getSwotDigestCandidates,
 } from '@/lib/telegram/events';
 import { processUserNotifications } from '@/lib/telegram/checker';
 
@@ -379,3 +383,144 @@ describe('Telegram checker — duplicate protection, settings, blocked handling 
     expect(row!.status).toBe('failed');
   });
 });
+
+describe('Telegram daily X/Z/SWOT/payments — platform data only', () => {
+  let userA: string;
+  let userB: string;
+  const afternoon = new Date(Date.UTC(2026, 7, 17, 9, 0, 0)); // 14:00 Tashkent
+  const evening = new Date(Date.UTC(2026, 7, 17, 16, 0, 0)); // 21:00 Tashkent
+  const yesterday = new Date(Date.UTC(2026, 7, 16, 10, 0, 0));
+
+  beforeAll(async () => {
+    const a = await prisma.user.create({
+      data: { email: `telegram-reports-a-${Date.now()}@test.local`, passwordHash: 'x', name: 'Reports A' },
+    });
+    const b = await prisma.user.create({
+      data: { email: `telegram-reports-b-${Date.now()}@test.local`, passwordHash: 'x', name: 'Reports B' },
+    });
+    userA = a.id;
+    userB = b.id;
+
+    await prisma.transaction.create({
+      data: {
+        userId: userA,
+        title: 'Bugungi savdo',
+        amount: 1_250_000,
+        type: 'income',
+        category: 'sales',
+        occurredAt: afternoon,
+      },
+    });
+    await prisma.transaction.create({
+      data: {
+        userId: userA,
+        title: 'Yetkazib berish',
+        amount: 200_000,
+        type: 'expense',
+        category: 'logistics',
+        occurredAt: afternoon,
+      },
+    });
+    await prisma.transaction.create({
+      data: {
+        userId: userA,
+        title: 'Kecha savdo',
+        amount: 9_999_999,
+        type: 'income',
+        category: 'sales',
+        occurredAt: yesterday,
+      },
+    });
+    await prisma.transaction.create({
+      data: {
+        userId: userB,
+        title: 'Boshqa foydalanuvchi savdosi',
+        amount: 777_000,
+        type: 'income',
+        occurredAt: afternoon,
+      },
+    });
+    await prisma.businessPlan.create({
+      data: {
+        userId: userA,
+        businessName: 'Green Shop',
+        targetAudience: 'oilalar',
+        budget: 20_000_000,
+        description: 'Organik mahsulot yetkazib berish',
+        concept: 'c',
+        marketOpportunity: 'm',
+        competitors: 'r',
+        marketingPlan: 'k',
+        operationalPlan: 'o',
+        financialPlan: 'f',
+        expenses: 'e',
+        expectedRevenue: 'd',
+        breakeven: 'b',
+        nextSteps: '[]',
+      },
+    });
+    await prisma.task.create({
+      data: { userId: userA, title: 'Soliq to‘lash', status: 'overdue', category: 'tax', dueDate: 'Kecha' },
+    });
+    await prisma.payment.create({
+      data: { userId: userA, amount: 50_000, purpose: 'Obuna', status: 'pending', currency: 'UZS' },
+    });
+  });
+
+  afterAll(async () => {
+    for (const userId of [userA, userB]) {
+      await prisma.telegramNotification.deleteMany({ where: { userId } });
+      await prisma.transaction.deleteMany({ where: { userId } });
+      await prisma.businessPlan.deleteMany({ where: { userId } });
+      await prisma.task.deleteMany({ where: { userId } });
+      await prisma.payment.deleteMany({ where: { userId } });
+      await prisma.user.delete({ where: { id: userId } }).catch(() => undefined);
+    }
+  });
+
+  it('X-hisobot uses today totals and ignores yesterday and other users', async () => {
+    const candidates = await getXReportCandidates(userA, afternoon);
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].eventId).toBe('x-report:2026-08-17');
+    expect(candidates[0].message).toContain((1_250_000).toLocaleString('uz-UZ'));
+    expect(candidates[0].message).toContain((200_000).toLocaleString('uz-UZ'));
+    expect(candidates[0].message).not.toContain((9_999_999).toLocaleString('uz-UZ'));
+    expect(candidates[0].message).not.toContain((777_000).toLocaleString('uz-UZ'));
+  });
+
+  it('does not emit X-hisobot when the user has no today transactions', async () => {
+    const emptyUser = await prisma.user.create({
+      data: { email: `telegram-reports-empty-${Date.now()}@test.local`, passwordHash: 'x', name: 'Empty' },
+    });
+    expect(await getXReportCandidates(emptyUser.id, afternoon)).toHaveLength(0);
+    expect(await getZReportCandidates(emptyUser.id, evening)).toHaveLength(0);
+    await prisma.user.delete({ where: { id: emptyUser.id } });
+  });
+
+  it('Z-hisobot is withheld before 20:00 Tashkent and emitted after', async () => {
+    expect(await getZReportCandidates(userA, afternoon)).toHaveLength(0);
+    const z = await getZReportCandidates(userA, evening);
+    expect(z).toHaveLength(1);
+    expect(z[0].eventId).toBe('z-report:2026-08-17');
+    expect(z[0].message).toContain('Z-hisobot');
+    expect(z[0].message).toContain((1_250_000).toLocaleString('uz-UZ'));
+  });
+
+  it('payments-due lists overdue tax tasks and pending payments, not another user', async () => {
+    const a = await getPaymentsDueCandidates(userA, afternoon);
+    expect(a).toHaveLength(1);
+    expect(a[0].message).toContain('Soliq to‘lash');
+    expect(a[0].message).toContain('Obuna');
+    expect(await getPaymentsDueCandidates(userB, afternoon)).toHaveLength(0);
+  });
+
+  it('daily SWOT is derived from the stored plan name and never invents a competitor brand', async () => {
+    const a = await getSwotDigestCandidates(userA, afternoon);
+    expect(a).toHaveLength(1);
+    expect(a[0].eventId).toMatch(/^swot:.+:2026-08-17$/);
+    expect(a[0].message).toContain('Green Shop');
+    expect(a[0].message).toContain('SWOT');
+    expect(await getSwotDigestCandidates(userB, afternoon)).toHaveLength(0);
+  });
+});
+

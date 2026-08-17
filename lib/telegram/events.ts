@@ -1,4 +1,14 @@
 import { prisma } from '@/lib/db';
+import {
+  formatPaymentsDue,
+  formatSwotDigest,
+  formatXReport,
+  formatZReport,
+  getDailyLedger,
+  getLatestPlan,
+  getPaymentsDue,
+  tashkentDayKey,
+} from '@/lib/reports/platform';
 
 /**
  * Derives Telegram notification CANDIDATES strictly from data that already
@@ -80,7 +90,6 @@ export async function getFinancialUpdateCandidates(userId: string): Promise<Noti
 export async function getBusinessUpdateCandidates(userId: string): Promise<NotificationCandidate[]> {
   const plans = await prisma.businessPlan.findMany({
     where: { userId },
-    select: { id: true, businessName: true },
     orderBy: { createdAt: 'desc' },
     take: RECENT_LIMIT,
   });
@@ -88,7 +97,7 @@ export async function getBusinessUpdateCandidates(userId: string): Promise<Notif
     type: 'BUSINESS_UPDATE' as const,
     eventId: `business-plan:${p.id}`,
     title: '\u{1F4C8} Biznes yangilanishi',
-    message: `"${p.businessName}" uchun biznes reja yaratildi.`,
+    message: `"${p.businessName}" uchun biznes reja yaratildi.\n\n${formatSwotDigest(p)}`,
   }));
 }
 
@@ -169,4 +178,56 @@ export async function getSystemNotificationCandidates(userId: string): Promise<N
     title: `\u{1F514} ${n.title}`,
     message: n.body,
   }));
+}
+
+export async function getXReportCandidates(userId: string, now: Date = new Date()): Promise<NotificationCandidate[]> {
+  const ledger = await getDailyLedger(userId, now);
+  if (ledger.count === 0) return [];
+  return [
+    {
+      type: 'FINANCIAL_UPDATE',
+      eventId: `x-report:${ledger.day}`,
+      title: '\u{1F4CB} X-hisobot',
+      message: formatXReport(ledger),
+    },
+  ];
+}
+
+export async function getZReportCandidates(userId: string, now: Date = new Date()): Promise<NotificationCandidate[]> {
+  const ledger = await getDailyLedger(userId, now);
+  if (ledger.count === 0 || !ledger.zReady) return [];
+  return [
+    {
+      type: 'FINANCIAL_UPDATE',
+      eventId: `z-report:${ledger.day}`,
+      title: '\u{1F4C4} Z-hisobot',
+      message: formatZReport(ledger),
+    },
+  ];
+}
+
+export async function getPaymentsDueCandidates(userId: string, now: Date = new Date()): Promise<NotificationCandidate[]> {
+  const items = await getPaymentsDue(userId);
+  if (items.length === 0) return [];
+  return [
+    {
+      type: 'TASK_REMINDER',
+      eventId: `payments-due:${tashkentDayKey(now)}`,
+      title: '\u{1F4B3} To\u2018lovlar va muddatlar',
+      message: formatPaymentsDue(items),
+    },
+  ];
+}
+
+export async function getSwotDigestCandidates(userId: string, now: Date = new Date()): Promise<NotificationCandidate[]> {
+  const plan = await getLatestPlan(userId);
+  if (!plan?.id) return [];
+  return [
+    {
+      type: 'BUSINESS_UPDATE',
+      eventId: `swot:${plan.id}:${tashkentDayKey(now)}`,
+      title: '\u{1F9E0} SWOT tahlili',
+      message: formatSwotDigest(plan),
+    },
+  ];
 }

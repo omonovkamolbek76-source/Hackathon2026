@@ -5,9 +5,13 @@ import {
   getBusinessUpdateCandidates,
   getDeadlineReminderCandidates,
   getFinancialUpdateCandidates,
+  getPaymentsDueCandidates,
   getSubscriptionUpdateCandidates,
+  getSwotDigestCandidates,
   getSystemNotificationCandidates,
   getTaskReminderCandidates,
+  getXReportCandidates,
+  getZReportCandidates,
   type NotificationCandidate,
 } from '@/lib/telegram/events';
 import { logger } from '@/lib/logger';
@@ -28,8 +32,12 @@ async function collectCandidatesForUser(userId: string, enabled: EnabledCategori
   const groups = await Promise.all([
     enabled.taskNotifications ? getTaskReminderCandidates(userId) : Promise.resolve([]),
     enabled.taskNotifications ? getDeadlineReminderCandidates(userId) : Promise.resolve([]),
+    enabled.taskNotifications ? getPaymentsDueCandidates(userId) : Promise.resolve([]),
     enabled.financialNotifications ? getFinancialUpdateCandidates(userId) : Promise.resolve([]),
+    enabled.financialNotifications ? getXReportCandidates(userId) : Promise.resolve([]),
+    enabled.financialNotifications ? getZReportCandidates(userId) : Promise.resolve([]),
     enabled.businessNotifications ? getBusinessUpdateCandidates(userId) : Promise.resolve([]),
+    enabled.businessNotifications ? getSwotDigestCandidates(userId) : Promise.resolve([]),
     enabled.businessNotifications ? getApplicationUpdateCandidates(userId) : Promise.resolve([]),
     enabled.subscriptionNotifications ? getSubscriptionUpdateCandidates(userId) : Promise.resolve([]),
     // Security/payment relays are not gated by a per-category toggle (only

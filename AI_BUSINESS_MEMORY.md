@@ -178,14 +178,16 @@ instrumentation.ts + lib/telegram/scheduler.ts — in-process setInterval (NOTIF
 - `prisma/schema.prisma` — `TelegramConnection`, `TelegramLinkToken`, `NotificationSettings`, `TelegramNotification` (`@@unique([userId, type, eventId])` — bu bir vaqtda bir nechta backend instance ishlaganda ham duplikatni oldini oladi, chunki DB constraint darajasida "claim" qilinadi, tashqi lock/queue kerak emas)
 - `lib/telegram/client.ts` — `sendTelegramMessage`, Telegram xato turlarini klassifikatsiya qilish (`blocked` / `chat_not_found` / `rate_limited`)
 - `lib/telegram/link.ts` — xavfsiz linking token (bir martalik, muddati o'tadi)
-- `lib/telegram/events.ts` — 7 ta notification turi, har biri mavjud jadvaldan olinadi:
+- `lib/telegram/events.ts` — notification turlari, har biri mavjud jadvaldan olinadi:
   - `TASK_REMINDER` ← `Task.status = 'today'`
   - `DEADLINE_REMINDER` ← `Task.status = 'overdue'`
-  - `FINANCIAL_UPDATE` ← yangi `Transaction`
-  - `BUSINESS_UPDATE` ← yangi `BusinessPlan`
+  - `FINANCIAL_UPDATE` ← yangi `Transaction` **va** kunlik **X-hisobot** / **Z-hisobot** (`lib/reports/platform.ts`, Toshkent kuni, faqat bugungi `Transaction` yig‘indisi; X — yozuv bo‘lsa; Z — soat 20:00 dan keyin)
+  - `BUSINESS_UPDATE` ← yangi `BusinessPlan` (xabar ichida SWOT) **va** kunlik SWOT digest
   - `APPLICATION_UPDATE` ← yangi `CreditApplication`
   - `SUBSCRIPTION_UPDATE` ← `Subscription` (faollashtirilgan / tugash arafasida / bekor qilingan)
-  - `SYSTEM_NOTIFICATION` ← mavjud in-app `Notification` jadvalini oynalaydi (MFA/to'lov — allaqachon real backend logika orqali yaratilgan)
+  - `SYSTEM_NOTIFICATION` ← mavjud in-app `Notification` jadvalini oynalaydi
+  - To‘lov muddatlari ← kechikkan/soliq-bank vazifalar + `Payment.status='pending'` (`payments-due:${day}`)
+- Idempotency: `x-report:${day}`, `z-report:${day}`, `swot:${planId}:${day}`, `payments-due:${day}` — checker 30s da spam qilmaydi. Bugun yozuv bo‘lmasa X/Z yuborilmaydi. AI/qidiruv/uydirma raqam yo‘q.
 - `lib/telegram/checker.ts` — settings bo'yicha filtr, "claim-then-send" (findUnique → create → send → update status), 3 marta muvaffaqiyatsizlikdan keyin abadiy to'xtaydi (infinite retry yo'q), "blocked" xatoda `TelegramConnection.status='blocked'`ga o'tkazadi
 - `app/api/telegram/{link,webhook,status,settings,connection,check}/route.ts` — linking, `/start <token>` handshake (bot boshqa hech narsa qilmaydi), status/sozlama/uzish, tashqi cron uchun ixtiyoriy trigger
 - `components/screens/profile-screen.tsx` — "Telegram bildirishnomalari" bo'limi (ulash/uzish + har bir turi uchun toggle)
@@ -208,10 +210,14 @@ Client xato klassifikatsiyasi, link token lifecycle (yaratish/bir martalik/mudda
 
 ---
 
-## 5. Keyingi qadam (so'ralishi kerak)
+## 6. Biznes reja + X/Z hisobotlar (2026-08-17)
 
-Foydalanuvchidan keyingi ustuvorlikni so'rash tavsiya etiladi:
-- Ovozli AI UI'ni qurishmi (brauzer testi zarur bo'ladi — alohida ruxsat kerak)?
-- Admin panel (subscription/price boshqarish UI)?
-- Financial Dashboard / Forecasting?
-- Yoki joriy qurilgan qismni real `GEMINI_API_KEY` bilan sinab ko'rish (foydalanuvchi tomonidan, chunki bu muhitda internet orqali Gemini'ga chiqish mumkin bo'lsa ham, haqiqiy foydalanuvchi tasdig'i/monitoring kerak)?
+**Bajarildi**
+- Biznes reja 3 bosqichli vizard: G‘oya → Bozor → Moliyaviy reja. Bosqichma-bosqich validatsiya, saqlangan rejalarni ochish, `nextSteps` JSON parse, interval leak tuzatildi, SWOT natija sahifasida.
+- `GET /api/business-plans/:id` — faqat o‘z rejalari.
+- Tahlil sahifasida bugungi X-hisobot, Z-hisobot (20:00 Toshkent), to‘lov muddatlari.
+- AI coach: X/Z/hisob-kitob/SWOT/to‘lov savollariga Gemini chaqirmasdan platforma agregatlaridan javob (`wantsPlatformReport` + `localPlatformReportReply`). Kontekstga bugungi aylanma qo‘shildi.
+
+**Keyingi qadamlar**
+- Foydalanuvchi `.env` da `TELEGRAM_BOT_TOKEN` + `TELEGRAM_BOT_USERNAME` va Profil orqali botni ulashi kerak — shunda X/Z/SWOT Telegramga ketadi.
+- Haqiqiy Gemini kaliti AI maslahatini to‘liq rejimda yoqadi; hisobot savollari baribir platforma raqamidan.

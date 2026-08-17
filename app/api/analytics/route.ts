@@ -1,6 +1,7 @@
 import { AuthError, requireUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { jsonError, jsonOk } from '@/lib/api';
+import { getDailyLedger, getPaymentsDue } from '@/lib/reports/platform';
 
 type Tx = { type: string; amount: number; category: string; occurredAt: Date };
 
@@ -52,6 +53,8 @@ export async function GET() {
       });
     }
 
+    const [ledger, paymentsDue] = await Promise.all([getDailyLedger(user.id), getPaymentsDue(user.id)]);
+
     return jsonOk({
       analytics: {
         monthlyRevenue: months,
@@ -60,6 +63,16 @@ export async function GET() {
         growth: 0,
         topProduct: expenseBreakdown[0]?.name || '—',
         topProductShare: 0,
+        today: {
+          day: ledger.day,
+          income: ledger.income,
+          expense: ledger.expense,
+          net: ledger.net,
+          turnover: ledger.turnover,
+          count: ledger.count,
+          zReady: ledger.zReady,
+          paymentsDue: paymentsDue.map((p) => ({ title: p.title, detail: p.detail })),
+        },
       },
       kpis: [
         {

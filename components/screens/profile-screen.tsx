@@ -340,7 +340,7 @@ export function ProfileScreen() {
             {!telegramStatus.connected ? (
               <div className="space-y-2">
                 <p className="text-[11px] text-muted-foreground">
-                  Vazifalar, moliyaviy yozuvlar va obuna yangilanishlari haqida Telegram orqali eslatma oling.
+                  Vazifalar, X/Z hisobot, aylanma, to‘lov muddatlari va SWOT haqida Telegram orqali eslatma oling. Faqat platformadagi haqiqiy yozuvlar yuboriladi.
                 </p>
                 <button
                   onClick={connectTelegram}
@@ -366,8 +366,8 @@ export function ProfileScreen() {
                   [
                     ['telegramEnabled', 'Barcha bildirishnomalar'],
                     ['taskNotifications', 'Vazifa eslatmalari'],
-                    ['financialNotifications', 'Moliyaviy yangilanishlar'],
-                    ['businessNotifications', 'Biznes / ariza yangilanishlari'],
+                    ['financialNotifications', 'Moliya, X/Z hisobot, aylanma'],
+                    ['businessNotifications', 'Biznes reja / SWOT / ariza'],
                     ['subscriptionNotifications', 'Obuna yangilanishlari'],
                   ] as [keyof TelegramStatus['settings'], string][]
                 ).map(([key, label]) => (
